@@ -3,6 +3,9 @@ import type * as v from "valibot";
 // Type-level Lexicon to Valibot type inference
 // This maps Lexicon schema definitions to their inferred output types
 
+// Utility to flatten intersection types into a clean object
+type Prettify<T> = { [K in keyof T]: T[K] } & {};
+
 // Blob reference types
 type TypedBlobRef = {
   $type: "blob";
@@ -65,35 +68,37 @@ type InferLexObject<
   Schema,
   Defs
 > = Props extends Record<string, unknown>
-  ? {
-      // Required non-nullable properties
-      [K in keyof Props as K extends RequiredKeys<Schema>
-        ? K extends NullableKeys<Schema>
+  ? Prettify<
+      {
+        // Required non-nullable properties
+        [K in keyof Props as K extends RequiredKeys<Schema>
+          ? K extends NullableKeys<Schema>
+            ? never
+            : K
+          : never]: InferLexType<Props[K], Defs>;
+      } & {
+        // Required nullable properties
+        [K in keyof Props as K extends RequiredKeys<Schema>
+          ? K extends NullableKeys<Schema>
+            ? K
+            : never
+          : never]: InferLexType<Props[K], Defs> | null;
+      } & {
+        // Optional non-nullable properties
+        [K in keyof Props as K extends RequiredKeys<Schema>
           ? never
-          : K
-        : never]: InferLexType<Props[K], Defs>;
-    } & {
-      // Required nullable properties
-      [K in keyof Props as K extends RequiredKeys<Schema>
-        ? K extends NullableKeys<Schema>
-          ? K
-          : never
-        : never]: InferLexType<Props[K], Defs> | null;
-    } & {
-      // Optional non-nullable properties
-      [K in keyof Props as K extends RequiredKeys<Schema>
-        ? never
-        : K extends NullableKeys<Schema>
+          : K extends NullableKeys<Schema>
+            ? never
+            : K]?: InferLexType<Props[K], Defs>;
+      } & {
+        // Optional nullable properties
+        [K in keyof Props as K extends RequiredKeys<Schema>
           ? never
-          : K]?: InferLexType<Props[K], Defs>;
-    } & {
-      // Optional nullable properties
-      [K in keyof Props as K extends RequiredKeys<Schema>
-        ? never
-        : K extends NullableKeys<Schema>
-          ? K
-          : never]?: InferLexType<Props[K], Defs> | null;
-    }
+          : K extends NullableKeys<Schema>
+            ? K
+            : never]?: InferLexType<Props[K], Defs> | null;
+      }
+    >
   : {};
 
 // Extract required keys from schema
