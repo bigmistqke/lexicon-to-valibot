@@ -1,11 +1,10 @@
 import { describe, it, expect } from "vitest";
 import * as v from "valibot";
-import { lexiconToValibot } from "./index.js";
-import type { LexiconDoc } from "./types.js";
+import { lexiconToValibot, type LexiconInput } from "./index.js";
 
 describe("lexiconToValibot", () => {
   it("converts a simple record lexicon", () => {
-    const lexicon: LexiconDoc = {
+    const lexicon: LexiconInput = {
       lexicon: 1,
       id: "com.example.simpleRecord",
       defs: {
@@ -33,7 +32,7 @@ describe("lexiconToValibot", () => {
   });
 
   it("converts multiple defs", () => {
-    const lexicon: LexiconDoc = {
+    const lexicon: LexiconInput = {
       lexicon: 1,
       id: "com.example.multiDef",
       defs: {
@@ -63,7 +62,7 @@ describe("lexiconToValibot", () => {
   });
 
   it("handles local refs between defs", () => {
-    const lexicon: LexiconDoc = {
+    const lexicon: LexiconInput = {
       lexicon: 1,
       id: "com.example.localRef",
       defs: {
@@ -107,7 +106,7 @@ describe("lexiconToValibot", () => {
   });
 
   it("handles arrays of objects", () => {
-    const lexicon: LexiconDoc = {
+    const lexicon: LexiconInput = {
       lexicon: 1,
       id: "com.example.arrayTest",
       defs: {
@@ -161,7 +160,7 @@ describe("lexiconToValibot", () => {
   });
 
   it("handles union types", () => {
-    const lexicon: LexiconDoc = {
+    const lexicon: LexiconInput = {
       lexicon: 1,
       id: "com.example.unionTest",
       defs: {
@@ -214,7 +213,7 @@ describe("lexiconToValibot", () => {
   });
 
   it("handles blob types", () => {
-    const lexicon: LexiconDoc = {
+    const lexicon: LexiconInput = {
       lexicon: 1,
       id: "com.example.blobTest",
       defs: {
@@ -244,7 +243,7 @@ describe("lexiconToValibot", () => {
   });
 
   it("handles nullable and optional properties", () => {
-    const lexicon: LexiconDoc = {
+    const lexicon: LexiconInput = {
       lexicon: 1,
       id: "com.example.nullableTest",
       defs: {
@@ -308,7 +307,7 @@ describe("lexiconToValibot", () => {
   });
 
   it("handles string formats", () => {
-    const lexicon: LexiconDoc = {
+    const lexicon: LexiconInput = {
       lexicon: 1,
       id: "com.example.formatTest",
       defs: {

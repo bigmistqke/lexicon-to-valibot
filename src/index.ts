@@ -20,6 +20,15 @@ import type {
   LexXrpcSubscription,
   ConverterContext,
 } from "./types.js";
+
+// Flexible input type that accepts both LexiconDoc and const objects
+export interface LexiconInput {
+  lexicon: 1;
+  id: string;
+  defs: Record<string, unknown>;
+  description?: string;
+  revision?: number;
+}
 import {
   convertBoolean,
   convertInteger,
@@ -165,13 +174,11 @@ function createRefResolver(
   };
 }
 
-export type LexiconValidators<T extends LexiconDoc> = {
-  [K in keyof T["defs"]]: v.GenericSchema;
-};
+import type { InferLexiconValidators } from "./infer.js";
 
-export function lexiconToValibot<T extends LexiconDoc>(
+export function lexiconToValibot<T extends LexiconInput>(
   lexicon: T
-): LexiconValidators<T> {
+): InferLexiconValidators<T> {
   const cache = new Map<string, v.GenericSchema>();
   const resolveRef = createRefResolver(
     lexicon.id,
@@ -200,7 +207,7 @@ export function lexiconToValibot<T extends LexiconDoc>(
     }
   }
 
-  return result as LexiconValidators<T>;
+  return result as InferLexiconValidators<T>;
 }
 
 // Re-export valibot's InferOutput for convenience
@@ -208,3 +215,6 @@ export type { InferOutput } from "valibot";
 
 // Re-export types
 export type { LexiconDoc, LexUserType } from "./types.js";
+
+// Re-export inference types
+export type { InferLexiconValidators, InferLexiconOutput, InferLexType } from "./infer.js";

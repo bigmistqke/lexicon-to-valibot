@@ -123,6 +123,34 @@ describe("convertString", () => {
     expect(v.safeParse(schema, "example.com").success).toBe(true);
     expect(v.safeParse(schema, "invalid").success).toBe(false);
   });
+
+  it("handles minGraphemes constraint", () => {
+    const schema = convertString({ type: "string", minGraphemes: 3 });
+    expect(v.safeParse(schema, "abc").success).toBe(true);
+    expect(v.safeParse(schema, "abcd").success).toBe(true);
+    expect(v.safeParse(schema, "ab").success).toBe(false);
+    // Emoji family is 1 grapheme but many code points
+    expect(v.safeParse(schema, "👨‍👩‍👧‍👦").success).toBe(false); // 1 grapheme
+    expect(v.safeParse(schema, "👨‍👩‍👧‍👦ab").success).toBe(true); // 3 graphemes
+  });
+
+  it("handles maxGraphemes constraint", () => {
+    const schema = convertString({ type: "string", maxGraphemes: 5 });
+    expect(v.safeParse(schema, "hello").success).toBe(true);
+    expect(v.safeParse(schema, "hi").success).toBe(true);
+    expect(v.safeParse(schema, "hello!").success).toBe(false);
+    // Emoji is 1 grapheme
+    expect(v.safeParse(schema, "👨‍👩‍👧‍👦👨‍👩‍👧‍👦👨‍👩‍👧‍👦👨‍👩‍👧‍👦👨‍👩‍👧‍👦").success).toBe(true); // 5 graphemes
+    expect(v.safeParse(schema, "👨‍👩‍👧‍👦👨‍👩‍👧‍👦👨‍👩‍👧‍👦👨‍👩‍👧‍👦👨‍👩‍👧‍👦👨‍👩‍👧‍👦").success).toBe(false); // 6 graphemes
+  });
+
+  it("distinguishes graphemes from code units", () => {
+    // "é" as single char vs "e" + combining accent
+    const schema = convertString({ type: "string", maxGraphemes: 1 });
+    expect(v.safeParse(schema, "é").success).toBe(true); // 1 grapheme
+    expect(v.safeParse(schema, "e\u0301").success).toBe(true); // 1 grapheme (e + combining acute)
+    expect(v.safeParse(schema, "ab").success).toBe(false); // 2 graphemes
+  });
 });
 
 describe("convertUnknown", () => {

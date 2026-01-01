@@ -29,6 +29,12 @@ export function convertInteger(schema: LexInteger): v.GenericSchema {
   return v.pipe(v.number(), ...checks);
 }
 
+const graphemeSegmenter = new Intl.Segmenter("en", { granularity: "grapheme" });
+
+function countGraphemes(str: string): number {
+  return [...graphemeSegmenter.segment(str)].length;
+}
+
 export function convertString(schema: LexString): v.GenericSchema {
   const checks: v.PipeItem<string, string, v.BaseIssue<unknown>>[] = [];
 
@@ -37,6 +43,25 @@ export function convertString(schema: LexString): v.GenericSchema {
   }
   if (schema.maxLength !== undefined) {
     checks.push(v.maxLength(schema.maxLength));
+  }
+
+  if (schema.minGraphemes !== undefined) {
+    const min = schema.minGraphemes;
+    checks.push(
+      v.check(
+        (value) => countGraphemes(value) >= min,
+        `String must have at least ${min} grapheme(s)`
+      )
+    );
+  }
+  if (schema.maxGraphemes !== undefined) {
+    const max = schema.maxGraphemes;
+    checks.push(
+      v.check(
+        (value) => countGraphemes(value) <= max,
+        `String must have at most ${max} grapheme(s)`
+      )
+    );
   }
 
   if (schema.enum !== undefined && schema.enum.length > 0) {

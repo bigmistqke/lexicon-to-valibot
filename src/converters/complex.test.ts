@@ -121,9 +121,10 @@ describe("convertObject", () => {
   });
 
   it("handles empty object", () => {
-    const lexObject: LexObject = {
+    const lexObject = {
       type: "object",
-    };
+      properties: {},
+    } as LexObject;
     const schema = convertObject(lexObject, createContext(), convertType);
 
     expect(v.safeParse(schema, {}).success).toBe(true);
