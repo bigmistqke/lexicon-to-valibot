@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import * as v from "valibot";
 import { BlobRef } from "@atproto/lexicon";
-import { CID } from "multiformats/cid";
 import { convertBlob, convertCidLink, convertToken } from "./atproto.js";
 
 describe("convertBlob", () => {
@@ -43,8 +42,11 @@ describe("convertBlob", () => {
     it("validates BlobRef class instance", () => {
       const schema = convertBlob({ type: "blob" }, "sdk");
 
-      const cid = CID.parse("bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku");
-      const blobRef = new BlobRef(cid, "image/jpeg", 12345);
+      // Create BlobRef from untyped JSON (simpler - uses CID.parse internally)
+      const blobRef = BlobRef.fromJsonRef({
+        cid: "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku",
+        mimeType: "image/jpeg",
+      });
 
       expect(v.safeParse(schema, blobRef).success).toBe(true);
     });
