@@ -1,21 +1,49 @@
 import * as v from "valibot";
 import type { LexBlob, LexCidLink, LexToken } from "../types.js";
 
-// Blob reference structure used by AT Protocol
-// Can be either typed (with $type: "blob") or untyped (legacy format)
-const typedBlobRef = v.object({
-  $type: v.literal("blob"),
-  ref: v.object({ $link: v.string() }),
-  mimeType: v.string(),
-  size: v.number(),
-});
+// Blob reference types for AT Protocol
+// The SDK deserializes blobs as BlobRef class instances, so we use duck typing
+// to accept both plain objects and class instances with the required properties.
 
-const untypedBlobRef = v.object({
-  cid: v.string(),
-  mimeType: v.string(),
-});
+type TypedBlobRef = {
+  $type: "blob";
+  ref: { $link: string };
+  mimeType: string;
+  size: number;
+};
 
-const blobRefSchema = v.union([typedBlobRef, untypedBlobRef]);
+type UntypedBlobRef = {
+  cid: string;
+  mimeType: string;
+};
+
+type BlobRef = TypedBlobRef | UntypedBlobRef;
+
+// Check for SDK BlobRef class: { ref: CID, mimeType: string, size: number }
+// The SDK's _BlobRef has ref as a _CID object, not { $link: string }
+function isTypedBlobRef(value: unknown): boolean {
+  if (typeof value !== "object" || value === null) return false;
+  const obj = value as Record<string, unknown>;
+  return (
+    typeof obj.ref === "object" &&
+    obj.ref !== null &&
+    typeof obj.mimeType === "string" &&
+    typeof obj.size === "number"
+  );
+}
+
+function isUntypedBlobRef(value: unknown): value is UntypedBlobRef {
+  if (typeof value !== "object" || value === null) return false;
+  const obj = value as Record<string, unknown>;
+  return typeof obj.cid === "string" && typeof obj.mimeType === "string";
+}
+
+function isBlobRef(value: unknown): value is BlobRef {
+  return isTypedBlobRef(value) || isUntypedBlobRef(value);
+}
+
+// Custom schema that accepts both plain objects and BlobRef class instances
+const blobRefSchema = v.custom<BlobRef>(isBlobRef, "Expected BlobRef");
 
 export function convertBlob(schema: LexBlob): v.GenericSchema {
   // For now, we validate the structure but don't enforce accept/maxSize at runtime

@@ -1,6 +1,6 @@
 import { describe, it, expect, expectTypeOf } from "vitest";
 import * as v from "valibot";
-import { lexiconToValibot } from "../index.js";
+import { xrpcToValibot } from "../index.js";
 
 describe("XRPC Query", () => {
   it("converts query with parameters and output", () => {
@@ -33,7 +33,7 @@ describe("XRPC Query", () => {
       },
     } as const;
 
-    const { main } = lexiconToValibot(lexicon);
+    const { main } = xrpcToValibot(lexicon);
 
     // Test parameters validator
     expect(v.safeParse(main.parameters, { uri: "at://did:plc:abc/app.bsky.feed.post/123" }).success).toBe(true);
@@ -68,7 +68,7 @@ describe("XRPC Query", () => {
       },
     } as const;
 
-    const { main } = lexiconToValibot(lexicon);
+    const { main } = xrpcToValibot(lexicon);
 
     expect(v.safeParse(main.parameters, {}).success).toBe(true);
     expect(v.safeParse(main.output, { data: "hello" }).success).toBe(true);
@@ -110,7 +110,7 @@ describe("XRPC Procedure", () => {
       },
     } as const;
 
-    const { main } = lexiconToValibot(lexicon);
+    const { main } = xrpcToValibot(lexicon);
 
     // Test input validator
     expect(
@@ -169,7 +169,7 @@ describe("XRPC Procedure", () => {
       },
     } as const;
 
-    const { main } = lexiconToValibot(lexicon);
+    const { main } = xrpcToValibot(lexicon);
 
     expect(v.safeParse(main.parameters, { id: "123" }).success).toBe(true);
     expect(v.safeParse(main.input, { value: 42 }).success).toBe(true);
@@ -205,7 +205,7 @@ describe("XRPC Subscription", () => {
       },
     } as const;
 
-    const { main } = lexiconToValibot(lexicon);
+    const { main } = xrpcToValibot(lexicon);
 
     expect(v.safeParse(main.parameters, {}).success).toBe(true);
     expect(v.safeParse(main.parameters, { cursor: 100 }).success).toBe(true);
@@ -244,7 +244,7 @@ describe("XRPC type inference", () => {
       },
     } as const;
 
-    const { main } = lexiconToValibot(lexicon);
+    const { main } = xrpcToValibot(lexicon);
 
     type Params = v.InferOutput<typeof main.parameters>;
     type Output = v.InferOutput<typeof main.output>;
@@ -284,7 +284,7 @@ describe("XRPC type inference", () => {
       },
     } as const;
 
-    const { main } = lexiconToValibot(lexicon);
+    const { main } = xrpcToValibot(lexicon);
 
     type Input = v.InferOutput<typeof main.input>;
     type Output = v.InferOutput<typeof main.output>;
