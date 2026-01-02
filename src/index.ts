@@ -1,24 +1,40 @@
 import * as v from "valibot";
+import { convertBlob, convertCidLink, convertToken } from "./converters/atproto.js";
+import { convertArray, convertObject, convertRef, convertUnion } from "./converters/complex.js";
+import {
+  convertBoolean,
+  convertBytes,
+  convertInteger,
+  convertString,
+  convertUnknown,
+} from "./converters/primitives.js";
+import {
+  convertProcedure,
+  convertQuery,
+  convertSubscription,
+  type ProcedureValidators,
+  type QueryValidators,
+  type SubscriptionValidators,
+} from "./converters/xrpc.js";
 import type {
-  LexiconDoc,
-  LexUserType,
-  LexBoolean,
-  LexInteger,
-  LexString,
-  LexUnknown,
-  LexBytes,
-  LexBlob,
-  LexCidLink,
-  LexToken,
+  ConverterContext,
   LexArray,
+  LexBlob,
+  LexBoolean,
+  LexBytes,
+  LexCidLink,
+  LexInteger,
   LexObject,
+  LexRecord,
   LexRef,
   LexRefUnion,
-  LexRecord,
-  LexXrpcQuery,
+  LexString,
+  LexToken,
+  LexUnknown,
+  LexUserType,
   LexXrpcProcedure,
-  LexXrpcSubscription,
-  ConverterContext,
+  LexXrpcQuery,
+  LexXrpcSubscription
 } from "./types.js";
 
 // Flexible input type that accepts both LexiconDoc and const objects
@@ -29,25 +45,14 @@ export interface LexiconInput {
   description?: string;
   revision?: number;
 }
-import {
-  convertBoolean,
-  convertInteger,
-  convertString,
-  convertUnknown,
-  convertBytes,
-} from "./converters/primitives.js";
-import { convertBlob, convertCidLink, convertToken } from "./converters/atproto.js";
-import { convertArray, convertObject, convertRef, convertUnion } from "./converters/complex.js";
-import {
-  convertQuery,
-  convertProcedure,
-  convertSubscription,
-  type QueryValidators,
-  type ProcedureValidators,
-  type SubscriptionValidators,
-} from "./converters/xrpc.js";
 
-export type { QueryValidators, ProcedureValidators, SubscriptionValidators };
+// Options for lexiconToValibot
+export interface LexiconToValibotOptions {
+  /** External ref schemas (e.g., com.atproto.repo.strongRef) */
+  externalRefs?: Record<string, v.GenericSchema>;
+}
+
+export type { ProcedureValidators, QueryValidators, SubscriptionValidators };
 
 type DefResult = v.GenericSchema | QueryValidators | ProcedureValidators | SubscriptionValidators;
 
@@ -123,7 +128,8 @@ function convertDef(schema: unknown, ctx: ConverterContext): DefResult {
 function createRefResolver(
   lexiconId: string,
   defs: Record<string, LexUserType>,
-  cache: Map<string, v.GenericSchema>
+  cache: Map<string, v.GenericSchema>,
+  externalRefs: Record<string, v.GenericSchema> = {}
 ): (ref: string) => v.GenericSchema {
   return (ref: string) => {
     // Parse the ref - could be:
@@ -146,16 +152,25 @@ function createRefResolver(
       return cache.get(resolvedRef)!;
     }
 
+    // Check external refs (try both original and resolved)
+    if (externalRefs[ref]) {
+      cache.set(resolvedRef, externalRefs[ref]);
+      return externalRefs[ref];
+    }
+    if (externalRefs[resolvedRef]) {
+      cache.set(resolvedRef, externalRefs[resolvedRef]);
+      return externalRefs[resolvedRef];
+    }
+
     // Parse the full ref
     const [nsid, defName] = resolvedRef.includes("#")
       ? resolvedRef.split("#")
       : [resolvedRef, "main"];
 
-    // Only handle local refs for now
+    // Only handle local refs
     if (nsid !== lexiconId) {
-      // For external refs, return a placeholder that validates anything
-      // Users should provide an external resolver for cross-lexicon refs
-      console.warn(`External ref not resolved: ${ref}`);
+      // External ref not found in externalRefs
+      console.warn(`External ref not resolved: ${ref} - provide it in externalRefs option`);
       return v.unknown();
     }
 
@@ -168,7 +183,7 @@ function createRefResolver(
     const ctx: ConverterContext = {
       lexiconId,
       defs,
-      resolveRef: createRefResolver(lexiconId, defs, cache),
+      resolveRef: createRefResolver(lexiconId, defs, cache, externalRefs),
     };
 
     // Convert and cache
@@ -180,14 +195,24 @@ function createRefResolver(
 
 import type { InferLexiconValidators } from "./infer.js";
 
-export function lexiconToValibot<T extends LexiconInput>(
-  lexicon: T
-): InferLexiconValidators<T> {
+// Helper type to convert schema map to output type map
+type InferSchemaOutputs<T extends Record<string, v.GenericSchema>> = {
+  [K in keyof T]: v.InferOutput<T[K]>;
+};
+
+export function lexiconToValibot<
+  T extends LexiconInput,
+  ExtRefs extends Record<string, v.GenericSchema> = {}
+>(
+  lexicon: T,
+  options: { externalRefs?: ExtRefs } = {}
+): InferLexiconValidators<T, InferSchemaOutputs<ExtRefs>> {
   const cache = new Map<string, v.GenericSchema>();
   const resolveRef = createRefResolver(
     lexicon.id,
     lexicon.defs as Record<string, LexUserType>,
-    cache
+    cache,
+    options.externalRefs ?? {}
   );
 
   const ctx: ConverterContext = {
@@ -202,14 +227,15 @@ export function lexiconToValibot<T extends LexiconInput>(
     result[defName] = convertDef(def, ctx);
   }
 
-  return result as InferLexiconValidators<T>;
+  return result as InferLexiconValidators<T, InferSchemaOutputs<ExtRefs>>;
 }
 
 // Re-export valibot's InferOutput for convenience
 export type { InferOutput } from "valibot";
-
-// Re-export types
-export type { LexiconDoc, LexUserType } from "./types.js";
+// Re-export built-in AT Protocol refs
+export { atprotoRefs, type AtprotoRefs } from "./atproto-refs.js";
 
 // Re-export inference types
-export type { InferLexiconValidators, InferLexiconOutput, InferLexType } from "./infer.js";
+export type { InferLexiconOutput, InferLexiconValidators, InferLexType } from "./infer.js";
+// Re-export types
+export type { LexiconDoc, LexUserType } from "./types.js";
