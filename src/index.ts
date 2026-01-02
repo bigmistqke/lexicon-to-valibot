@@ -16,6 +16,7 @@ import {
   type QueryValidators,
   type SubscriptionValidators,
 } from "./converters/xrpc.js";
+import type { BlobFormat, InferLexiconValidators, InferXrpcValidators } from "./infer.js";
 import type {
   ConverterContext,
   LexArray,
@@ -36,6 +37,7 @@ import type {
   LexXrpcQuery,
   LexXrpcSubscription
 } from "./types.js";
+import { Mutable } from "./types.js";
 
 // Flexible input type that accepts both LexiconDoc and const objects
 export interface LexiconInput {
@@ -210,8 +212,6 @@ function createRefResolver(
   };
 }
 
-import type { BlobFormat, InferLexiconValidators, InferXrpcValidators } from "./infer.js";
-
 // Helper type to convert schema map to output type map
 type InferSchemaOutputs<T extends Record<string, v.GenericSchema>> = {
   [K in keyof T]: v.InferOutput<T[K]>;
@@ -228,7 +228,7 @@ export function lexiconToValibot<
 >(
   lexicon: T,
   options: { externalRefs?: ExtRefs; format?: Format } = {}
-): InferLexiconValidators<T, InferSchemaOutputs<ExtRefs>, Format> {
+): InferLexiconValidators<Mutable<T>, InferSchemaOutputs<ExtRefs>, Format> {
   const blobFormat = options.format ?? 'sdk';
   const cache = new Map<string, v.GenericSchema>();
   const resolveRef = createRefResolver(
@@ -266,7 +266,7 @@ export function lexiconToValibot<
     result[defName] = schema;
   }
 
-  return result as InferLexiconValidators<T, InferSchemaOutputs<ExtRefs>, Format>;
+  return result as InferLexiconValidators<Mutable<T>, InferSchemaOutputs<ExtRefs>, Format>;
 }
 
 /**
@@ -274,13 +274,13 @@ export function lexiconToValibot<
  * Only handles query, procedure, and subscription types.
  */
 export function xrpcToValibot<
-  T extends LexiconInput,
+  T extends Mutable<LexiconInput>,
   ExtRefs extends Record<string, v.GenericSchema> = {},
   Format extends BlobFormat = 'sdk'
 >(
   lexicon: T,
   options: { externalRefs?: ExtRefs; format?: Format } = {}
-): InferXrpcValidators<T, InferSchemaOutputs<ExtRefs>, Format> {
+): InferXrpcValidators<Mutable<T>, InferSchemaOutputs<ExtRefs>, Format> {
   const blobFormat = options.format ?? 'sdk';
   const cache = new Map<string, v.GenericSchema>();
   const resolveRef = createRefResolver(
@@ -306,7 +306,7 @@ export function xrpcToValibot<
     result[defName] = convertXrpcDef(def, ctx);
   }
 
-  return result as InferXrpcValidators<T, InferSchemaOutputs<ExtRefs>, Format>;
+  return result as InferXrpcValidators<Mutable<T>, InferSchemaOutputs<ExtRefs>, Format>;
 }
 
 // Re-export valibot's InferOutput for convenience
@@ -318,3 +318,5 @@ export { atprotoRefs, type AtprotoRefs } from "./atproto-refs.js";
 export type { BlobFormat, InferLexiconOutput, InferLexiconValidators, InferLexType } from "./infer.js";
 // Re-export types
 export type { LexiconDoc, LexUserType } from "./types.js";
+
+

@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
 import * as v from "valibot";
+import { describe, expect, it } from "vitest";
 import { convertBlob, convertCidLink, convertToken } from "./atproto.js";
 
 // Mock BlobRef-like object for testing (duck typing)
@@ -82,6 +82,7 @@ describe("convertBlob", () => {
         mimeType: "image/jpeg",
         size: 12345,
       };
+
 
       expect(v.safeParse(schema, wireBlob).success).toBe(false);
     });
