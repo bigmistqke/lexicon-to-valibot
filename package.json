@@ -17,7 +17,7 @@
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prepublishOnly": "bumpp && pnpm build"
+    "bump": "bumpp"
   },
   "keywords": ["lexicon", "valibot", "atproto", "bluesky", "validation"],
   "license": "MIT",
