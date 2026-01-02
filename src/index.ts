@@ -50,6 +50,8 @@ export interface LexiconInput {
 export interface LexiconToValibotOptions {
   /** External ref schemas (e.g., com.atproto.repo.strongRef) */
   externalRefs?: Record<string, v.GenericSchema>;
+  /** Format for blob validation: 'sdk' for parsing fetched records, 'wire' for outgoing. Default: 'sdk' */
+  format?: 'sdk' | 'wire';
 }
 
 export type { ProcedureValidators, QueryValidators, SubscriptionValidators };
@@ -82,7 +84,7 @@ function convertType(schema: unknown, ctx: ConverterContext): v.GenericSchema {
 
     // AT Protocol types
     case "blob":
-      return convertBlob(schema as LexBlob);
+      return convertBlob(schema as LexBlob, ctx.blobFormat);
     case "token":
       return convertToken(schema as LexToken);
 
@@ -132,11 +134,18 @@ function isXrpcDef(schema: unknown): boolean {
   return type === "query" || type === "procedure" || type === "subscription";
 }
 
+// Check if a def is a record type
+function isRecordDef(schema: unknown): boolean {
+  if (typeof schema !== "object" || schema === null) return false;
+  return (schema as { type?: string }).type === "record";
+}
+
 function createRefResolver(
   lexiconId: string,
   defs: Record<string, LexUserType>,
   cache: Map<string, v.GenericSchema>,
-  externalRefs: Record<string, v.GenericSchema> = {}
+  externalRefs: Record<string, v.GenericSchema> = {},
+  blobFormat: 'sdk' | 'wire' = 'sdk'
 ): (ref: string) => v.GenericSchema {
   return (ref: string) => {
     // Parse the ref - could be:
@@ -190,7 +199,8 @@ function createRefResolver(
     const ctx: ConverterContext = {
       lexiconId,
       defs,
-      resolveRef: createRefResolver(lexiconId, defs, cache, externalRefs),
+      resolveRef: createRefResolver(lexiconId, defs, cache, externalRefs, blobFormat),
+      blobFormat,
     };
 
     // Convert and cache
@@ -216,20 +226,23 @@ export function lexiconToValibot<
   ExtRefs extends Record<string, v.GenericSchema> = {}
 >(
   lexicon: T,
-  options: { externalRefs?: ExtRefs } = {}
+  options: { externalRefs?: ExtRefs; format?: 'sdk' | 'wire' } = {}
 ): InferLexiconValidators<T, InferSchemaOutputs<ExtRefs>> {
+  const blobFormat = options.format ?? 'sdk';
   const cache = new Map<string, v.GenericSchema>();
   const resolveRef = createRefResolver(
     lexicon.id,
     lexicon.defs as Record<string, LexUserType>,
     cache,
-    options.externalRefs ?? {}
+    options.externalRefs ?? {},
+    blobFormat
   );
 
   const ctx: ConverterContext = {
     lexiconId: lexicon.id,
     defs: lexicon.defs,
     resolveRef,
+    blobFormat,
   };
 
   const result: Record<string, v.GenericSchema> = {};
@@ -237,7 +250,19 @@ export function lexiconToValibot<
   for (const [defName, def] of Object.entries(lexicon.defs)) {
     // Skip XRPC types
     if (isXrpcDef(def)) continue;
-    result[defName] = convertType(def, ctx);
+
+    let schema = convertType(def, ctx);
+
+    // For wire format, wrap record types with $type
+    if (blobFormat === 'wire' && isRecordDef(def)) {
+      const $type = defName === 'main' ? lexicon.id : `${lexicon.id}#${defName}`;
+      schema = v.object({
+        $type: v.literal($type),
+        ...('entries' in schema ? (schema as v.ObjectSchema<v.ObjectEntries, undefined>).entries : {}),
+      });
+    }
+
+    result[defName] = schema;
   }
 
   return result as InferLexiconValidators<T, InferSchemaOutputs<ExtRefs>>;
@@ -252,20 +277,23 @@ export function xrpcToValibot<
   ExtRefs extends Record<string, v.GenericSchema> = {}
 >(
   lexicon: T,
-  options: { externalRefs?: ExtRefs } = {}
+  options: { externalRefs?: ExtRefs; format?: 'sdk' | 'wire' } = {}
 ): InferXrpcValidators<T, InferSchemaOutputs<ExtRefs>> {
+  const blobFormat = options.format ?? 'sdk';
   const cache = new Map<string, v.GenericSchema>();
   const resolveRef = createRefResolver(
     lexicon.id,
     lexicon.defs as Record<string, LexUserType>,
     cache,
-    options.externalRefs ?? {}
+    options.externalRefs ?? {},
+    blobFormat
   );
 
   const ctx: ConverterContext = {
     lexiconId: lexicon.id,
     defs: lexicon.defs,
     resolveRef,
+    blobFormat,
   };
 
   const result: Record<string, XrpcResult> = {};

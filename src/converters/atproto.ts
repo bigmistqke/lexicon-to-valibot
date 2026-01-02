@@ -1,27 +1,47 @@
 import * as v from "valibot";
-import type { LexBlob, LexCidLink, LexToken } from "../types.js";
+import type { BlobFormat, LexBlob, LexCidLink, LexToken } from "../types.js";
 
 // Blob reference types for AT Protocol
-// The SDK deserializes blobs as BlobRef class instances, so we use duck typing
-// to accept both plain objects and class instances with the required properties.
 
-type TypedBlobRef = {
+// Wire format: what gets sent to/from PDS
+type WireBlobRef = {
   $type: "blob";
   ref: { $link: string };
   mimeType: string;
   size: number;
 };
 
+// SDK format: what the SDK deserializes to (class instances)
+type SdkBlobRef = {
+  ref: object; // _CID instance
+  mimeType: string;
+  size: number;
+};
+
+// Untyped/legacy format
 type UntypedBlobRef = {
   cid: string;
   mimeType: string;
 };
 
-type BlobRef = TypedBlobRef | UntypedBlobRef;
+type BlobRef = WireBlobRef | SdkBlobRef | UntypedBlobRef;
+
+// Check for wire format: { $type: "blob", ref: { $link: string }, ... }
+function isWireBlobRef(value: unknown): value is WireBlobRef {
+  if (typeof value !== "object" || value === null) return false;
+  const obj = value as Record<string, unknown>;
+  return (
+    obj.$type === "blob" &&
+    typeof obj.ref === "object" &&
+    obj.ref !== null &&
+    typeof (obj.ref as Record<string, unknown>).$link === "string" &&
+    typeof obj.mimeType === "string" &&
+    typeof obj.size === "number"
+  );
+}
 
 // Check for SDK BlobRef class: { ref: CID, mimeType: string, size: number }
-// The SDK's _BlobRef has ref as a _CID object, not { $link: string }
-function isTypedBlobRef(value: unknown): boolean {
+function isSdkBlobRef(value: unknown): value is SdkBlobRef {
   if (typeof value !== "object" || value === null) return false;
   const obj = value as Record<string, unknown>;
   return (
@@ -38,17 +58,22 @@ function isUntypedBlobRef(value: unknown): value is UntypedBlobRef {
   return typeof obj.cid === "string" && typeof obj.mimeType === "string";
 }
 
-function isBlobRef(value: unknown): value is BlobRef {
-  return isTypedBlobRef(value) || isUntypedBlobRef(value);
-}
+// Validator for SDK format (incoming from PDS via SDK)
+const blobSdkSchema = v.custom<SdkBlobRef | UntypedBlobRef>(
+  (value) => isSdkBlobRef(value) || isUntypedBlobRef(value),
+  "Expected BlobRef (SDK format)"
+);
 
-// Custom schema that accepts both plain objects and BlobRef class instances
-const blobRefSchema = v.custom<BlobRef>(isBlobRef, "Expected BlobRef");
+// Validator for wire format (outgoing to PDS)
+const blobWireSchema = v.custom<WireBlobRef | UntypedBlobRef>(
+  (value) => isWireBlobRef(value) || isUntypedBlobRef(value),
+  "Expected BlobRef (wire format)"
+);
 
-export function convertBlob(schema: LexBlob): v.GenericSchema {
+export function convertBlob(schema: LexBlob, format: BlobFormat): v.GenericSchema {
   // For now, we validate the structure but don't enforce accept/maxSize at runtime
   // Those would require access to the actual blob data
-  return blobRefSchema;
+  return format === 'sdk' ? blobSdkSchema : blobWireSchema;
 }
 
 // CID link is represented as an object with $link property containing the CID string

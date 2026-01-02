@@ -25,8 +25,13 @@ export type {
 
 export type RefResolver = (ref: string) => v.GenericSchema;
 
+/** Format for blob validation */
+export type BlobFormat = 'sdk' | 'wire';
+
 export interface ConverterContext {
   lexiconId: string;
   defs: Record<string, unknown>;
   resolveRef: RefResolver;
+  /** Format for blob validation: 'sdk' for parsing fetched records, 'wire' for outgoing */
+  blobFormat: BlobFormat;
 }
