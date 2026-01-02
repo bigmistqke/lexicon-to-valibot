@@ -1,4 +1,4 @@
-import { BlobRef } from "@atproto/lexicon";
+import type { BlobRef } from "@atproto/lexicon";
 import * as v from "valibot";
 import type { BlobFormat, LexBlob, LexCidLink, LexToken } from "../types.js";
 
@@ -32,9 +32,19 @@ function isWireBlobRef(value: unknown): value is WireBlobRef {
   );
 }
 
-// Check for SDK BlobRef class instance
+// Check for SDK BlobRef class instance using duck typing
+// BlobRef has: ref (CID with toString), mimeType, size, original
 function isSdkBlobRef(value: unknown): value is BlobRef {
-  return value instanceof BlobRef;
+  if (typeof value !== "object" || value === null) return false;
+  const obj = value as Record<string, unknown>;
+  return (
+    typeof obj.ref === "object" &&
+    obj.ref !== null &&
+    typeof (obj.ref as { toString?: unknown }).toString === "function" &&
+    typeof obj.mimeType === "string" &&
+    typeof obj.size === "number" &&
+    typeof obj.original === "object"
+  );
 }
 
 function isUntypedBlobRef(value: unknown): value is UntypedBlobRef {

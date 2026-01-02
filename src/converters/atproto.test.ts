@@ -1,7 +1,16 @@
 import { describe, it, expect } from "vitest";
 import * as v from "valibot";
-import { BlobRef } from "@atproto/lexicon";
 import { convertBlob, convertCidLink, convertToken } from "./atproto.js";
+
+// Mock BlobRef-like object for testing (duck typing)
+function createMockBlobRef(cid: string, mimeType: string, size: number) {
+  return {
+    ref: { toString: () => cid },
+    mimeType,
+    size,
+    original: { cid, mimeType },
+  };
+}
 
 describe("convertBlob", () => {
   describe("wire format", () => {
@@ -39,14 +48,15 @@ describe("convertBlob", () => {
   });
 
   describe("sdk format", () => {
-    it("validates BlobRef class instance", () => {
+    it("validates BlobRef-like object (duck typing)", () => {
       const schema = convertBlob({ type: "blob" }, "sdk");
 
-      // Create BlobRef from untyped JSON (simpler - uses CID.parse internally)
-      const blobRef = BlobRef.fromJsonRef({
-        cid: "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku",
-        mimeType: "image/jpeg",
-      });
+      // Create mock BlobRef with the expected shape
+      const blobRef = createMockBlobRef(
+        "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku",
+        "image/jpeg",
+        12345
+      );
 
       expect(v.safeParse(schema, blobRef).success).toBe(true);
     });
@@ -65,7 +75,7 @@ describe("convertBlob", () => {
     it("rejects wire format in sdk mode", () => {
       const schema = convertBlob({ type: "blob" }, "sdk");
 
-      // Wire format has $type and ref.$link
+      // Wire format has $type and ref.$link but no original
       const wireBlob = {
         $type: "blob",
         ref: { $link: "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku" },
