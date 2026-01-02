@@ -11,6 +11,7 @@ function createContext(
     lexiconId: "test.lexicon",
     defs: {},
     resolveRef,
+    blobFormat: "sdk",
   };
 }
 

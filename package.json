@@ -11,7 +11,9 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -19,7 +21,13 @@
     "test:watch": "vitest",
     "bump": "bumpp"
   },
-  "keywords": ["lexicon", "valibot", "atproto", "bluesky", "validation"],
+  "keywords": [
+    "lexicon",
+    "valibot",
+    "atproto",
+    "bluesky",
+    "validation"
+  ],
   "license": "MIT",
   "peerDependencies": {
     "valibot": ">=1.0.0"
@@ -27,6 +35,7 @@
   "devDependencies": {
     "@atproto/lexicon": "^0.4.0",
     "bumpp": "^9.0.0",
+    "multiformats": "^13.4.2",
     "tsup": "^8.0.0",
     "typescript": "^5.0.0",
     "valibot": "^1.0.0",

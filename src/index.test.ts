@@ -212,7 +212,7 @@ describe("lexiconToValibot", () => {
     ).toBe(false);
   });
 
-  it("handles blob types", () => {
+  it("handles blob types (wire format)", () => {
     const lexicon: LexiconInput = {
       lexicon: 1,
       id: "com.example.blobTest",
@@ -226,7 +226,7 @@ describe("lexiconToValibot", () => {
       },
     };
 
-    const validators = lexiconToValibot(lexicon);
+    const validators = lexiconToValibot(lexicon, { format: "wire" });
 
     expect(
       v.safeParse(validators.main, {

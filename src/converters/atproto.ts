@@ -1,3 +1,4 @@
+import { BlobRef } from "@atproto/lexicon";
 import * as v from "valibot";
 import type { BlobFormat, LexBlob, LexCidLink, LexToken } from "../types.js";
 
@@ -11,20 +12,11 @@ type WireBlobRef = {
   size: number;
 };
 
-// SDK format: what the SDK deserializes to (class instances)
-type SdkBlobRef = {
-  ref: object; // _CID instance
-  mimeType: string;
-  size: number;
-};
-
 // Untyped/legacy format
 type UntypedBlobRef = {
   cid: string;
   mimeType: string;
 };
-
-type BlobRef = WireBlobRef | SdkBlobRef | UntypedBlobRef;
 
 // Check for wire format: { $type: "blob", ref: { $link: string }, ... }
 function isWireBlobRef(value: unknown): value is WireBlobRef {
@@ -40,16 +32,9 @@ function isWireBlobRef(value: unknown): value is WireBlobRef {
   );
 }
 
-// Check for SDK BlobRef class: { ref: CID, mimeType: string, size: number }
-function isSdkBlobRef(value: unknown): value is SdkBlobRef {
-  if (typeof value !== "object" || value === null) return false;
-  const obj = value as Record<string, unknown>;
-  return (
-    typeof obj.ref === "object" &&
-    obj.ref !== null &&
-    typeof obj.mimeType === "string" &&
-    typeof obj.size === "number"
-  );
+// Check for SDK BlobRef class instance
+function isSdkBlobRef(value: unknown): value is BlobRef {
+  return value instanceof BlobRef;
 }
 
 function isUntypedBlobRef(value: unknown): value is UntypedBlobRef {
@@ -59,7 +44,7 @@ function isUntypedBlobRef(value: unknown): value is UntypedBlobRef {
 }
 
 // Validator for SDK format (incoming from PDS via SDK)
-const blobSdkSchema = v.custom<SdkBlobRef | UntypedBlobRef>(
+const blobSdkSchema = v.custom<BlobRef | UntypedBlobRef>(
   (value) => isSdkBlobRef(value) || isUntypedBlobRef(value),
   "Expected BlobRef (SDK format)"
 );

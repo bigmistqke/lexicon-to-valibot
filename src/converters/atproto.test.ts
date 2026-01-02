@@ -1,38 +1,78 @@
 import { describe, it, expect } from "vitest";
 import * as v from "valibot";
+import { BlobRef } from "@atproto/lexicon";
+import { CID } from "multiformats/cid";
 import { convertBlob, convertCidLink, convertToken } from "./atproto.js";
 
 describe("convertBlob", () => {
-  it("validates typed blob reference", () => {
-    const schema = convertBlob({ type: "blob" });
+  describe("wire format", () => {
+    it("validates typed blob reference", () => {
+      const schema = convertBlob({ type: "blob" }, "wire");
 
-    const typedBlob = {
-      $type: "blob",
-      ref: { $link: "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku" },
-      mimeType: "image/jpeg",
-      size: 12345,
-    };
+      const typedBlob = {
+        $type: "blob",
+        ref: { $link: "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku" },
+        mimeType: "image/jpeg",
+        size: 12345,
+      };
 
-    expect(v.safeParse(schema, typedBlob).success).toBe(true);
+      expect(v.safeParse(schema, typedBlob).success).toBe(true);
+    });
+
+    it("validates untyped blob reference (legacy format)", () => {
+      const schema = convertBlob({ type: "blob" }, "wire");
+
+      const untypedBlob = {
+        cid: "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku",
+        mimeType: "image/jpeg",
+      };
+
+      expect(v.safeParse(schema, untypedBlob).success).toBe(true);
+    });
+
+    it("rejects invalid blob structure", () => {
+      const schema = convertBlob({ type: "blob" }, "wire");
+
+      expect(v.safeParse(schema, { mimeType: "image/jpeg" }).success).toBe(false);
+      expect(v.safeParse(schema, "blob-string").success).toBe(false);
+      expect(v.safeParse(schema, null).success).toBe(false);
+    });
   });
 
-  it("validates untyped blob reference (legacy format)", () => {
-    const schema = convertBlob({ type: "blob" });
+  describe("sdk format", () => {
+    it("validates BlobRef class instance", () => {
+      const schema = convertBlob({ type: "blob" }, "sdk");
 
-    const untypedBlob = {
-      cid: "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku",
-      mimeType: "image/jpeg",
-    };
+      const cid = CID.parse("bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku");
+      const blobRef = new BlobRef(cid, "image/jpeg", 12345);
 
-    expect(v.safeParse(schema, untypedBlob).success).toBe(true);
-  });
+      expect(v.safeParse(schema, blobRef).success).toBe(true);
+    });
 
-  it("rejects invalid blob structure", () => {
-    const schema = convertBlob({ type: "blob" });
+    it("validates untyped blob reference (legacy format)", () => {
+      const schema = convertBlob({ type: "blob" }, "sdk");
 
-    expect(v.safeParse(schema, { mimeType: "image/jpeg" }).success).toBe(false);
-    expect(v.safeParse(schema, "blob-string").success).toBe(false);
-    expect(v.safeParse(schema, null).success).toBe(false);
+      const untypedBlob = {
+        cid: "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku",
+        mimeType: "image/jpeg",
+      };
+
+      expect(v.safeParse(schema, untypedBlob).success).toBe(true);
+    });
+
+    it("rejects wire format in sdk mode", () => {
+      const schema = convertBlob({ type: "blob" }, "sdk");
+
+      // Wire format has $type and ref.$link
+      const wireBlob = {
+        $type: "blob",
+        ref: { $link: "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku" },
+        mimeType: "image/jpeg",
+        size: 12345,
+      };
+
+      expect(v.safeParse(schema, wireBlob).success).toBe(false);
+    });
   });
 });
 
