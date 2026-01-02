@@ -126,9 +126,65 @@ type InferLexUnion<Refs extends readonly string[], Defs> = Refs extends readonly
   ? InferLexRef<First, Defs> | InferLexUnion<Rest, Defs>
   : never;
 
+// XRPC params inference
+type InferLexParams<T, Defs> = T extends {
+  type: "params";
+  properties?: infer Props;
+  required?: infer R extends readonly string[];
+}
+  ? Props extends Record<string, unknown>
+    ? Prettify<
+        {
+          [K in keyof Props as K extends R[number] ? K : never]: InferLexType<Props[K], Defs>;
+        } & {
+          [K in keyof Props as K extends R[number] ? never : K]?: InferLexType<Props[K], Defs>;
+        }
+      >
+    : {}
+  : {};
+
+// XRPC body (input/output/message) inference
+type InferLexBody<T, Defs> = T extends { schema: infer S }
+  ? InferLexType<S, Defs>
+  : unknown;
+
+// XRPC Query validators type
+type InferQueryValidators<T, Defs> = T extends { type: "query" }
+  ? {
+      parameters: v.GenericSchema<InferLexParams<T extends { parameters: infer P } ? P : never, Defs>>;
+      output: v.GenericSchema<InferLexBody<T extends { output: infer O } ? O : never, Defs>>;
+    }
+  : never;
+
+// XRPC Procedure validators type
+type InferProcedureValidators<T, Defs> = T extends { type: "procedure" }
+  ? {
+      parameters: v.GenericSchema<InferLexParams<T extends { parameters: infer P } ? P : never, Defs>>;
+      input: v.GenericSchema<InferLexBody<T extends { input: infer I } ? I : never, Defs>>;
+      output: v.GenericSchema<InferLexBody<T extends { output: infer O } ? O : never, Defs>>;
+    }
+  : never;
+
+// XRPC Subscription validators type
+type InferSubscriptionValidators<T, Defs> = T extends { type: "subscription" }
+  ? {
+      parameters: v.GenericSchema<InferLexParams<T extends { parameters: infer P } ? P : never, Defs>>;
+      message: v.GenericSchema<InferLexBody<T extends { message: infer M } ? M : never, Defs>>;
+    }
+  : never;
+
+// Infer the validator(s) for a def - XRPC types return objects, others return schemas
+type InferDefValidator<T, Defs> = T extends { type: "query" }
+  ? InferQueryValidators<T, Defs>
+  : T extends { type: "procedure" }
+    ? InferProcedureValidators<T, Defs>
+    : T extends { type: "subscription" }
+      ? InferSubscriptionValidators<T, Defs>
+      : v.GenericSchema<InferLexType<T, Defs>>;
+
 // Main type for inferring all validators from a LexiconDoc
 export type InferLexiconValidators<T extends { defs: Record<string, unknown> }> = {
-  [K in keyof T["defs"]]: v.GenericSchema<InferLexType<T["defs"][K], T["defs"]>>;
+  [K in keyof T["defs"]]: InferDefValidator<T["defs"][K], T["defs"]>;
 };
 
 // Helper to get the output type from a lexicon's def

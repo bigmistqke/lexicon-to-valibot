@@ -38,13 +38,18 @@ import {
 } from "./converters/primitives.js";
 import { convertBlob, convertCidLink, convertToken } from "./converters/atproto.js";
 import { convertArray, convertObject, convertRef, convertUnion } from "./converters/complex.js";
+import {
+  convertQuery,
+  convertProcedure,
+  convertSubscription,
+  type QueryValidators,
+  type ProcedureValidators,
+  type SubscriptionValidators,
+} from "./converters/xrpc.js";
 
-function isLexType<T extends { type: string }>(
-  obj: unknown,
-  type: T["type"]
-): obj is T {
-  return typeof obj === "object" && obj !== null && (obj as { type?: string }).type === type;
-}
+export type { QueryValidators, ProcedureValidators, SubscriptionValidators };
+
+type DefResult = v.GenericSchema | QueryValidators | ProcedureValidators | SubscriptionValidators;
 
 function convertType(schema: unknown, ctx: ConverterContext): v.GenericSchema {
   if (typeof schema !== "object" || schema === null) {
@@ -86,33 +91,32 @@ function convertType(schema: unknown, ctx: ConverterContext): v.GenericSchema {
     case "union":
       return convertUnion(schema as LexRefUnion, ctx);
 
-    // XRPC types - extract the relevant schema
+    // Record type
     case "record":
       return convertObject((schema as LexRecord).record, ctx, convertType);
-    case "query":
-      // For query, we could return the output schema
-      const query = schema as LexXrpcQuery;
-      if (query.output?.schema) {
-        return convertType(query.output.schema, ctx);
-      }
-      return v.unknown();
-    case "procedure":
-      // For procedure, we could return the output schema
-      const procedure = schema as LexXrpcProcedure;
-      if (procedure.output?.schema) {
-        return convertType(procedure.output.schema, ctx);
-      }
-      return v.unknown();
-    case "subscription":
-      // For subscription, return the message schema
-      const subscription = schema as LexXrpcSubscription;
-      if (subscription.message?.schema) {
-        return convertType(subscription.message.schema, ctx);
-      }
-      return v.unknown();
 
     default:
       throw new Error(`Unknown schema type: ${schemaObj.type}`);
+  }
+}
+
+// Convert a def - returns either a schema or XRPC validators object
+function convertDef(schema: unknown, ctx: ConverterContext): DefResult {
+  if (typeof schema !== "object" || schema === null) {
+    throw new Error(`Invalid schema: expected object, got ${typeof schema}`);
+  }
+
+  const schemaObj = schema as { type?: string };
+
+  switch (schemaObj.type) {
+    case "query":
+      return convertQuery(schema as LexXrpcQuery, ctx, convertType);
+    case "procedure":
+      return convertProcedure(schema as LexXrpcProcedure, ctx, convertType);
+    case "subscription":
+      return convertSubscription(schema as LexXrpcSubscription, ctx, convertType);
+    default:
+      return convertType(schema, ctx);
   }
 }
 
@@ -192,19 +196,10 @@ export function lexiconToValibot<T extends LexiconInput>(
     resolveRef,
   };
 
-  const result: Record<string, v.GenericSchema> = {};
+  const result: Record<string, DefResult> = {};
 
   for (const [defName, def] of Object.entries(lexicon.defs)) {
-    const cacheKey = `${lexicon.id}#${defName}`;
-
-    // Check if already converted (via ref resolution)
-    if (cache.has(cacheKey)) {
-      result[defName] = cache.get(cacheKey)!;
-    } else {
-      const schema = convertType(def, ctx);
-      cache.set(cacheKey, schema);
-      result[defName] = schema;
-    }
+    result[defName] = convertDef(def, ctx);
   }
 
   return result as InferLexiconValidators<T>;
