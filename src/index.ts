@@ -54,7 +54,7 @@ export interface LexiconToValibotOptions {
 
 export type { ProcedureValidators, QueryValidators, SubscriptionValidators };
 
-type DefResult = v.GenericSchema | QueryValidators | ProcedureValidators | SubscriptionValidators;
+type XrpcResult = QueryValidators | ProcedureValidators | SubscriptionValidators;
 
 function convertType(schema: unknown, ctx: ConverterContext): v.GenericSchema {
   if (typeof schema !== "object" || schema === null) {
@@ -105,8 +105,8 @@ function convertType(schema: unknown, ctx: ConverterContext): v.GenericSchema {
   }
 }
 
-// Convert a def - returns either a schema or XRPC validators object
-function convertDef(schema: unknown, ctx: ConverterContext): DefResult {
+// Convert XRPC def - returns validators object
+function convertXrpcDef(schema: unknown, ctx: ConverterContext): XrpcResult {
   if (typeof schema !== "object" || schema === null) {
     throw new Error(`Invalid schema: expected object, got ${typeof schema}`);
   }
@@ -121,8 +121,15 @@ function convertDef(schema: unknown, ctx: ConverterContext): DefResult {
     case "subscription":
       return convertSubscription(schema as LexXrpcSubscription, ctx, convertType);
     default:
-      return convertType(schema, ctx);
+      throw new Error(`Not an XRPC type: ${schemaObj.type}`);
   }
+}
+
+// Check if a def is an XRPC type
+function isXrpcDef(schema: unknown): boolean {
+  if (typeof schema !== "object" || schema === null) return false;
+  const type = (schema as { type?: string }).type;
+  return type === "query" || type === "procedure" || type === "subscription";
 }
 
 function createRefResolver(
@@ -193,13 +200,17 @@ function createRefResolver(
   };
 }
 
-import type { InferLexiconValidators } from "./infer.js";
+import type { InferLexiconValidators, InferXrpcValidators } from "./infer.js";
 
 // Helper type to convert schema map to output type map
 type InferSchemaOutputs<T extends Record<string, v.GenericSchema>> = {
   [K in keyof T]: v.InferOutput<T[K]>;
 };
 
+/**
+ * Convert a lexicon to valibot schemas for records and objects.
+ * Skips XRPC types (query, procedure, subscription) - use xrpcToValibot for those.
+ */
 export function lexiconToValibot<
   T extends LexiconInput,
   ExtRefs extends Record<string, v.GenericSchema> = {}
@@ -221,13 +232,51 @@ export function lexiconToValibot<
     resolveRef,
   };
 
-  const result: Record<string, DefResult> = {};
+  const result: Record<string, v.GenericSchema> = {};
 
   for (const [defName, def] of Object.entries(lexicon.defs)) {
-    result[defName] = convertDef(def, ctx);
+    // Skip XRPC types
+    if (isXrpcDef(def)) continue;
+    result[defName] = convertType(def, ctx);
   }
 
   return result as InferLexiconValidators<T, InferSchemaOutputs<ExtRefs>>;
+}
+
+/**
+ * Convert a lexicon to valibot validators for XRPC endpoints.
+ * Only handles query, procedure, and subscription types.
+ */
+export function xrpcToValibot<
+  T extends LexiconInput,
+  ExtRefs extends Record<string, v.GenericSchema> = {}
+>(
+  lexicon: T,
+  options: { externalRefs?: ExtRefs } = {}
+): InferXrpcValidators<T, InferSchemaOutputs<ExtRefs>> {
+  const cache = new Map<string, v.GenericSchema>();
+  const resolveRef = createRefResolver(
+    lexicon.id,
+    lexicon.defs as Record<string, LexUserType>,
+    cache,
+    options.externalRefs ?? {}
+  );
+
+  const ctx: ConverterContext = {
+    lexiconId: lexicon.id,
+    defs: lexicon.defs,
+    resolveRef,
+  };
+
+  const result: Record<string, XrpcResult> = {};
+
+  for (const [defName, def] of Object.entries(lexicon.defs)) {
+    // Only handle XRPC types
+    if (!isXrpcDef(def)) continue;
+    result[defName] = convertXrpcDef(def, ctx);
+  }
+
+  return result as InferXrpcValidators<T, InferSchemaOutputs<ExtRefs>>;
 }
 
 // Re-export valibot's InferOutput for convenience

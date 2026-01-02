@@ -186,21 +186,36 @@ type InferSubscriptionValidators<T, Defs, ExtRefs extends ExternalRefsMap = {}> 
     }
   : never;
 
-// Infer the validator(s) for a def - XRPC types return objects, others return schemas
-type InferDefValidator<T, Defs, ExtRefs extends ExternalRefsMap = {}> = T extends { type: "query" }
+// Check if a def is an XRPC type
+type IsXrpcType<T> = T extends { type: "query" | "procedure" | "subscription" } ? true : false;
+
+// Infer schema for non-XRPC def
+type InferSchemaValidator<T, Defs, ExtRefs extends ExternalRefsMap = {}> =
+  v.GenericSchema<InferLexType<T, Defs, ExtRefs>>;
+
+// Infer validators for XRPC def
+type InferXrpcValidator<T, Defs, ExtRefs extends ExternalRefsMap = {}> = T extends { type: "query" }
   ? InferQueryValidators<T, Defs, ExtRefs>
   : T extends { type: "procedure" }
     ? InferProcedureValidators<T, Defs, ExtRefs>
     : T extends { type: "subscription" }
       ? InferSubscriptionValidators<T, Defs, ExtRefs>
-      : v.GenericSchema<InferLexType<T, Defs, ExtRefs>>;
+      : never;
 
-// Main type for inferring all validators from a LexiconDoc
+// Main type for inferring schema validators from a LexiconDoc (excludes XRPC)
 export type InferLexiconValidators<
   T extends { defs: Record<string, unknown> },
   ExtRefs extends ExternalRefsMap = {}
 > = {
-  [K in keyof T["defs"]]: InferDefValidator<T["defs"][K], T["defs"], ExtRefs>;
+  [K in keyof T["defs"] as IsXrpcType<T["defs"][K]> extends true ? never : K]: InferSchemaValidator<T["defs"][K], T["defs"], ExtRefs>;
+};
+
+// Type for inferring XRPC validators from a LexiconDoc (only XRPC types)
+export type InferXrpcValidators<
+  T extends { defs: Record<string, unknown> },
+  ExtRefs extends ExternalRefsMap = {}
+> = {
+  [K in keyof T["defs"] as IsXrpcType<T["defs"][K]> extends true ? K : never]: InferXrpcValidator<T["defs"][K], T["defs"], ExtRefs>;
 };
 
 // Helper to get the output type from a lexicon's def
