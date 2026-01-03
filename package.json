@@ -19,7 +19,8 @@
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "bump": "bumpp"
+    "bump": "bumpp",
+    "prepublish": "pnpm test && pnpm build"
   },
   "keywords": [
     "lexicon",
