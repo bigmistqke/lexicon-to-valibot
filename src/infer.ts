@@ -43,41 +43,41 @@ type ExternalRefsMap = Record<string, unknown>;
 // Format = 'sdk' | 'wire' for blob type inference
 export type InferLexType<T, Defs = {}, ExtRefs extends ExternalRefsMap = {}, Format extends BlobFormat = 'sdk'> = T extends { type: "boolean" }
   ? T extends { const: infer C extends boolean }
-    ? C
-    : boolean
+  ? C
+  : boolean
   : T extends { type: "integer" }
-    ? T extends { const: infer C extends number }
-      ? C
-      : T extends { enum: infer E extends readonly number[] }
-        ? E[number]
-        : number
-    : T extends { type: "string" }
-      ? T extends { const: infer C extends string }
-        ? C
-        : T extends { enum: infer E extends readonly string[] }
-          ? E[number]
-          : string
-      : T extends { type: "unknown" }
-        ? unknown
-        : T extends { type: "bytes" }
-          ? Uint8Array
-          : T extends { type: "blob" }
-            ? InferBlobRef<Format>
-            : T extends { type: "cid-link" }
-              ? CidLink
-              : T extends { type: "token" }
-                ? string
-                : T extends { type: "array"; items: infer Items }
-                  ? InferLexType<Items, Defs, ExtRefs, Format>[]
-                  : T extends { type: "object"; properties?: infer Props }
-                    ? InferLexObject<Props, T, Defs, ExtRefs, Format>
-                    : T extends { type: "ref"; ref: infer R extends string }
-                      ? InferLexRef<R, Defs, ExtRefs, Format>
-                      : T extends { type: "union"; refs: infer Refs extends readonly string[] }
-                        ? InferLexUnion<Refs, Defs, ExtRefs, Format>
-                        : T extends { type: "record"; record: infer Rec }
-                          ? InferLexType<Rec, Defs, ExtRefs, Format>
-                          : unknown;
+  ? T extends { const: infer C extends number }
+  ? C
+  : T extends { enum: infer E extends readonly number[] }
+  ? E[number]
+  : number
+  : T extends { type: "string" }
+  ? T extends { const: infer C extends string }
+  ? C
+  : T extends { enum: infer E extends readonly string[] }
+  ? E[number]
+  : string
+  : T extends { type: "unknown" }
+  ? unknown
+  : T extends { type: "bytes" }
+  ? Uint8Array
+  : T extends { type: "blob" }
+  ? InferBlobRef<Format>
+  : T extends { type: "cid-link" }
+  ? CidLink
+  : T extends { type: "token" }
+  ? string
+  : T extends { type: "array"; items: infer Items }
+  ? InferLexType<Items, Defs, ExtRefs, Format>[]
+  : T extends { type: "object"; properties?: infer Props }
+  ? InferLexObject<Props, T, Defs, ExtRefs, Format>
+  : T extends { type: "ref"; ref: infer R extends string }
+  ? InferLexRef<R, Defs, ExtRefs, Format>
+  : T extends { type: "union"; refs: infer Refs extends readonly string[] }
+  ? InferLexUnion<Refs, Defs, ExtRefs, Format>
+  : T extends { type: "record"; record: infer Rec }
+  ? InferLexType<Rec, Defs, ExtRefs, Format>
+  : unknown;
 
 // Infer object properties with required/nullable handling
 type InferLexObject<
@@ -88,36 +88,36 @@ type InferLexObject<
   Format extends BlobFormat = 'sdk'
 > = Props extends Record<string, unknown>
   ? Prettify<
-      {
-        // Required non-nullable properties
-        [K in keyof Props as K extends RequiredKeys<Schema>
-          ? K extends NullableKeys<Schema>
-            ? never
-            : K
-          : never]: InferLexType<Props[K], Defs, ExtRefs, Format>;
-      } & {
-        // Required nullable properties
-        [K in keyof Props as K extends RequiredKeys<Schema>
-          ? K extends NullableKeys<Schema>
-            ? K
-            : never
-          : never]: InferLexType<Props[K], Defs, ExtRefs, Format> | null;
-      } & {
-        // Optional non-nullable properties
-        [K in keyof Props as K extends RequiredKeys<Schema>
-          ? never
-          : K extends NullableKeys<Schema>
-            ? never
-            : K]?: InferLexType<Props[K], Defs, ExtRefs, Format>;
-      } & {
-        // Optional nullable properties
-        [K in keyof Props as K extends RequiredKeys<Schema>
-          ? never
-          : K extends NullableKeys<Schema>
-            ? K
-            : never]?: InferLexType<Props[K], Defs, ExtRefs, Format> | null;
-      }
-    >
+    {
+      // Required non-nullable properties
+      [K in keyof Props as K extends RequiredKeys<Schema>
+      ? K extends NullableKeys<Schema>
+      ? never
+      : K
+      : never]: InferLexType<Props[K], Defs, ExtRefs, Format>;
+    } & {
+      // Required nullable properties
+      [K in keyof Props as K extends RequiredKeys<Schema>
+      ? K extends NullableKeys<Schema>
+      ? K
+      : never
+      : never]: InferLexType<Props[K], Defs, ExtRefs, Format> | null;
+    } & {
+      // Optional non-nullable properties
+      [K in keyof Props as K extends RequiredKeys<Schema>
+      ? never
+      : K extends NullableKeys<Schema>
+      ? never
+      : K]?: InferLexType<Props[K], Defs, ExtRefs, Format>;
+    } & {
+      // Optional nullable properties
+      [K in keyof Props as K extends RequiredKeys<Schema>
+      ? never
+      : K extends NullableKeys<Schema>
+      ? K
+      : never]?: InferLexType<Props[K], Defs, ExtRefs, Format> | null;
+    }
+  >
   : {};
 
 // Extract required keys from schema
@@ -134,15 +134,15 @@ type NullableKeys<T> = T extends { nullable: infer N extends readonly string[] }
 type InferLexRef<R extends string, Defs, ExtRefs extends ExternalRefsMap = {}, Format extends BlobFormat = 'sdk'> =
   // Local ref: #defName
   R extends `#${infer DefName}`
-    ? DefName extends keyof Defs
-      ? InferLexType<Defs[DefName], Defs, ExtRefs, Format>
-      : unknown
-    // External ref: check ExtRefs with both original and #main variants
-    : R extends keyof ExtRefs
-      ? ExtRefs[R]
-      : `${R}#main` extends keyof ExtRefs
-        ? ExtRefs[`${R}#main`]
-        : unknown;
+  ? DefName extends keyof Defs
+  ? InferLexType<Defs[DefName], Defs, ExtRefs, Format>
+  : unknown
+  // External ref: check ExtRefs with both original and #main variants
+  : R extends keyof ExtRefs
+  ? ExtRefs[R]
+  : `${R}#main` extends keyof ExtRefs
+  ? ExtRefs[`${R}#main`]
+  : unknown;
 
 // Resolve union of refs
 type InferLexUnion<Refs extends readonly string[], Defs, ExtRefs extends ExternalRefsMap = {}, Format extends BlobFormat = 'sdk'> = Refs extends readonly [
@@ -159,14 +159,14 @@ type InferLexParams<T, Defs, ExtRefs extends ExternalRefsMap = {}, Format extend
   required?: infer R extends readonly string[];
 }
   ? Props extends Record<string, unknown>
-    ? Prettify<
-        {
-          [K in keyof Props as K extends R[number] ? K : never]: InferLexType<Props[K], Defs, ExtRefs, Format>;
-        } & {
-          [K in keyof Props as K extends R[number] ? never : K]?: InferLexType<Props[K], Defs, ExtRefs, Format>;
-        }
-      >
-    : {}
+  ? Prettify<
+    {
+      [K in keyof Props as K extends R[number] ? K : never]: InferLexType<Props[K], Defs, ExtRefs, Format>;
+    } & {
+      [K in keyof Props as K extends R[number] ? never : K]?: InferLexType<Props[K], Defs, ExtRefs, Format>;
+    }
+  >
+  : {}
   : {};
 
 // XRPC body (input/output/message) inference
@@ -177,26 +177,26 @@ type InferLexBody<T, Defs, ExtRefs extends ExternalRefsMap = {}, Format extends 
 // XRPC Query validators type
 type InferQueryValidators<T, Defs, ExtRefs extends ExternalRefsMap = {}, Format extends BlobFormat = 'sdk'> = T extends { type: "query" }
   ? {
-      parameters: v.GenericSchema<InferLexParams<T extends { parameters: infer P } ? P : never, Defs, ExtRefs, Format>>;
-      output: v.GenericSchema<InferLexBody<T extends { output: infer O } ? O : never, Defs, ExtRefs, Format>>;
-    }
+    parameters: v.GenericSchema<InferLexParams<T extends { parameters: infer P } ? P : never, Defs, ExtRefs, Format>>;
+    output: v.GenericSchema<InferLexBody<T extends { output: infer O } ? O : never, Defs, ExtRefs, Format>>;
+  }
   : never;
 
 // XRPC Procedure validators type
 type InferProcedureValidators<T, Defs, ExtRefs extends ExternalRefsMap = {}, Format extends BlobFormat = 'sdk'> = T extends { type: "procedure" }
   ? {
-      parameters: v.GenericSchema<InferLexParams<T extends { parameters: infer P } ? P : never, Defs, ExtRefs, Format>>;
-      input: v.GenericSchema<InferLexBody<T extends { input: infer I } ? I : never, Defs, ExtRefs, Format>>;
-      output: v.GenericSchema<InferLexBody<T extends { output: infer O } ? O : never, Defs, ExtRefs, Format>>;
-    }
+    parameters: v.GenericSchema<InferLexParams<T extends { parameters: infer P } ? P : never, Defs, ExtRefs, Format>>;
+    input: v.GenericSchema<InferLexBody<T extends { input: infer I } ? I : never, Defs, ExtRefs, Format>>;
+    output: v.GenericSchema<InferLexBody<T extends { output: infer O } ? O : never, Defs, ExtRefs, Format>>;
+  }
   : never;
 
 // XRPC Subscription validators type
 type InferSubscriptionValidators<T, Defs, ExtRefs extends ExternalRefsMap = {}, Format extends BlobFormat = 'sdk'> = T extends { type: "subscription" }
   ? {
-      parameters: v.GenericSchema<InferLexParams<T extends { parameters: infer P } ? P : never, Defs, ExtRefs, Format>>;
-      message: v.GenericSchema<InferLexBody<T extends { message: infer M } ? M : never, Defs, ExtRefs, Format>>;
-    }
+    parameters: v.GenericSchema<InferLexParams<T extends { parameters: infer P } ? P : never, Defs, ExtRefs, Format>>;
+    message: v.GenericSchema<InferLexBody<T extends { message: infer M } ? M : never, Defs, ExtRefs, Format>>;
+  }
   : never;
 
 // Check if a def is an XRPC type
@@ -210,10 +210,10 @@ type InferSchemaValidator<T, Defs, ExtRefs extends ExternalRefsMap = {}, Format 
 type InferXrpcValidator<T, Defs, ExtRefs extends ExternalRefsMap = {}, Format extends BlobFormat = 'sdk'> = T extends { type: "query" }
   ? InferQueryValidators<T, Defs, ExtRefs, Format>
   : T extends { type: "procedure" }
-    ? InferProcedureValidators<T, Defs, ExtRefs, Format>
-    : T extends { type: "subscription" }
-      ? InferSubscriptionValidators<T, Defs, ExtRefs, Format>
-      : never;
+  ? InferProcedureValidators<T, Defs, ExtRefs, Format>
+  : T extends { type: "subscription" }
+  ? InferSubscriptionValidators<T, Defs, ExtRefs, Format>
+  : never;
 
 // Main type for inferring schema validators from a LexiconDoc (excludes XRPC)
 export type InferLexiconValidators<
@@ -221,8 +221,8 @@ export type InferLexiconValidators<
   ExtRefs extends ExternalRefsMap = {},
   Format extends BlobFormat = 'sdk'
 > = {
-  [K in keyof T["defs"] as IsXrpcType<T["defs"][K]> extends true ? never : K]: InferSchemaValidator<T["defs"][K], T["defs"], ExtRefs, Format>;
-};
+    [K in keyof T["defs"]as IsXrpcType<T["defs"][K]> extends true ? never : K]: InferSchemaValidator<T["defs"][K], T["defs"], ExtRefs, Format>;
+  };
 
 // Type for inferring XRPC validators from a LexiconDoc (only XRPC types)
 export type InferXrpcValidators<
@@ -230,8 +230,8 @@ export type InferXrpcValidators<
   ExtRefs extends ExternalRefsMap = {},
   Format extends BlobFormat = 'sdk'
 > = {
-  [K in keyof T["defs"] as IsXrpcType<T["defs"][K]> extends true ? K : never]: InferXrpcValidator<T["defs"][K], T["defs"], ExtRefs, Format>;
-};
+    [K in keyof T["defs"]as IsXrpcType<T["defs"][K]> extends true ? K : never]: InferXrpcValidator<T["defs"][K], T["defs"], ExtRefs, Format>;
+  };
 
 // Helper to get the output type from a lexicon's def
 export type InferLexiconOutput<
