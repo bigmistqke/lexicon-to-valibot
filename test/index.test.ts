@@ -1,6 +1,6 @@
 import * as v from "valibot";
 import { describe, expect, it } from "vitest";
-import { lexiconToValibot, type LexiconInput } from "../src/index.js";
+import { createLookup, lexiconToValibot } from "../src/index.js";
 
 describe("lexiconToValibot", () => {
   it("converts a simple record lexicon", () => {
@@ -346,6 +346,244 @@ describe("lexiconToValibot", () => {
         createdAt: "not-a-date",
         did: "did:plc:abc123",
         handle: "user.bsky.social",
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe("createLookup", () => {
+  it("resolves cross-lexicon references", () => {
+    const authorLexicon = {
+      lexicon: 1,
+      id: "com.example.author",
+      defs: {
+        main: {
+          type: "object",
+          required: ["name"],
+          properties: {
+            name: { type: "string" },
+            bio: { type: "string" },
+          },
+        },
+      },
+    } as const;
+
+    const postLexicon = {
+      lexicon: 1,
+      id: "com.example.post",
+      defs: {
+        main: {
+          type: "object",
+          required: ["text", "author"],
+          properties: {
+            text: { type: "string" },
+            author: { type: "ref", ref: "com.example.author" },
+          },
+        },
+      },
+    } as const;
+
+    const lookup = createLookup(authorLexicon, postLexicon);
+    const postValidators = lexiconToValibot(postLexicon, { lookup });
+
+    expect(
+      v.safeParse(postValidators.main, {
+        text: "Hello world",
+        author: { name: "John" },
+      }).success,
+    ).toBe(true);
+
+    expect(
+      v.safeParse(postValidators.main, {
+        text: "Hello world",
+        author: { name: "Jane", bio: "Developer" },
+      }).success,
+    ).toBe(true);
+
+    expect(
+      v.safeParse(postValidators.main, {
+        text: "Hello world",
+        author: {},
+      }).success,
+    ).toBe(false);
+  });
+
+  it("resolves cross-lexicon refs with def name", () => {
+    const defsLexicon = {
+      lexicon: 1,
+      id: "com.example.defs",
+      defs: {
+        tag: {
+          type: "object",
+          required: ["label"],
+          properties: {
+            label: { type: "string" },
+            color: { type: "string" },
+          },
+        },
+      },
+    } as const;
+
+    const itemLexicon = {
+      lexicon: 1,
+      id: "com.example.item",
+      defs: {
+        main: {
+          type: "object",
+          required: ["name", "tags"],
+          properties: {
+            name: { type: "string" },
+            tags: {
+              type: "array",
+              items: { type: "ref", ref: "com.example.defs#tag" },
+            },
+          },
+        },
+      },
+    } as const;
+
+    const lookup = createLookup(defsLexicon, itemLexicon);
+    const itemValidators = lexiconToValibot(itemLexicon, { lookup });
+
+    expect(
+      v.safeParse(itemValidators.main, {
+        name: "My Item",
+        tags: [{ label: "important" }, { label: "urgent", color: "red" }],
+      }).success,
+    ).toBe(true);
+
+    expect(
+      v.safeParse(itemValidators.main, {
+        name: "My Item",
+        tags: [{}],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("shares cache across multiple conversions", () => {
+    const sharedLexicon = {
+      lexicon: 1,
+      id: "com.example.shared",
+      defs: {
+        main: {
+          type: "object",
+          required: ["id"],
+          properties: {
+            id: { type: "string" },
+          },
+        },
+      },
+    } as const;
+
+    const lexiconA = {
+      lexicon: 1,
+      id: "com.example.a",
+      defs: {
+        main: {
+          type: "object",
+          required: ["shared"],
+          properties: {
+            shared: { type: "ref", ref: "com.example.shared" },
+          },
+        },
+      },
+    } as const;
+
+    const lexiconB = {
+      lexicon: 1,
+      id: "com.example.b",
+      defs: {
+        main: {
+          type: "object",
+          required: ["shared"],
+          properties: {
+            shared: { type: "ref", ref: "com.example.shared" },
+          },
+        },
+      },
+    } as const;
+
+    const lookup = createLookup(sharedLexicon, lexiconA, lexiconB);
+    const validatorsA = lexiconToValibot(lexiconA, { lookup });
+    const validatorsB = lexiconToValibot(lexiconB, { lookup });
+
+    // Both should work with the same shared type
+    expect(
+      v.safeParse(validatorsA.main, { shared: { id: "123" } }).success,
+    ).toBe(true);
+    expect(
+      v.safeParse(validatorsB.main, { shared: { id: "456" } }).success,
+    ).toBe(true);
+
+    // Invalid shared type should fail for both
+    expect(v.safeParse(validatorsA.main, { shared: {} }).success).toBe(false);
+    expect(v.safeParse(validatorsB.main, { shared: {} }).success).toBe(false);
+  });
+
+  it("works with union refs across lexicons", () => {
+    const textContent = {
+      lexicon: 1,
+      id: "com.example.textContent",
+      defs: {
+        main: {
+          type: "object",
+          required: ["text"],
+          properties: {
+            text: { type: "string" },
+          },
+        },
+      },
+    } as const;
+
+    const imageContent = {
+      lexicon: 1,
+      id: "com.example.imageContent",
+      defs: {
+        main: {
+          type: "object",
+          required: ["url"],
+          properties: {
+            url: { type: "string", format: "uri" },
+          },
+        },
+      },
+    } as const;
+
+    const postLexicon = {
+      lexicon: 1,
+      id: "com.example.post",
+      defs: {
+        main: {
+          type: "object",
+          required: ["content"],
+          properties: {
+            content: {
+              type: "union",
+              refs: ["com.example.textContent", "com.example.imageContent"],
+            },
+          },
+        },
+      },
+    } as const;
+
+    const lookup = createLookup(textContent, imageContent, postLexicon);
+    const postValidators = lexiconToValibot(postLexicon, { lookup });
+
+    expect(
+      v.safeParse(postValidators.main, {
+        content: { text: "Hello" },
+      }).success,
+    ).toBe(true);
+
+    expect(
+      v.safeParse(postValidators.main, {
+        content: { url: "https://example.com/img.jpg" },
+      }).success,
+    ).toBe(true);
+
+    expect(
+      v.safeParse(postValidators.main, {
+        content: { other: "field" },
       }).success,
     ).toBe(false);
   });
