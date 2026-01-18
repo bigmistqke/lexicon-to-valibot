@@ -10,9 +10,11 @@ import {
 } from "./converters/xrpc.js";
 import type {
   BlobFormat,
+  BuildExtRefs,
   ConverterContext,
   InferLexiconValidators,
   InferXrpcValidators,
+  LexiconInput,
   LexUserType,
   LexXrpcProcedure,
   LexXrpcQuery,
@@ -42,24 +44,21 @@ export interface RefResolverConfig {
 
 export type LexiconFormat = "sdk" | "wire";
 
-// Flexible input type that accepts both LexiconDoc and const objects
-export interface LexiconInput {
-  lexicon: 1;
-  id: string;
-  defs: Record<string, unknown>;
-  description?: string;
-  revision?: number;
-}
-
 type XrpcResult =
   | QueryValidators
   | ProcedureValidators
   | SubscriptionValidators;
 
+/** Symbol for phantom type to preserve lexicon types */
+const LexiconsType = Symbol("LexiconsType");
+
 /**
  * A lookup object that holds lexicons for cross-reference resolution and caches results.
+ * The generic parameter preserves type information about the lexicons for proper type inference.
  */
-export interface Lookup {
+export interface Lookup<
+  Lexicons extends readonly LexiconInput[] = readonly LexiconInput[],
+> {
   /** @internal */
   _lexiconMap: Map<string, { id: string; defs: Record<string, LexUserType> }>;
   /** @internal - cache keyed by format */
@@ -67,11 +66,13 @@ export interface Lookup {
     sdk: Map<string, v.GenericSchema>;
     wire: Map<string, v.GenericSchema>;
   };
+  /** @internal - phantom type to preserve lexicon types */
+  [LexiconsType]?: Lexicons;
 }
 
 /**
  * Create a lookup for resolving cross-lexicon references.
- * The lookup caches converted schemas for reuse.
+ * The lookup caches converted schemas for reuse and preserves type information.
  *
  * @example
  * ```ts
@@ -81,7 +82,9 @@ export interface Lookup {
  * const like = lexiconToValibot(likeLexicon, { lookup })
  * ```
  */
-export function createLookup(...lexicons: LexiconInput[]): Lookup {
+export function createLookup<const Lexicons extends readonly LexiconInput[]>(
+  ...lexicons: Lexicons
+): Lookup<Lexicons> {
   const lexiconMap = new Map<
     string,
     { id: string; defs: Record<string, LexUserType> }
@@ -106,9 +109,11 @@ export function createLookup(...lexicons: LexiconInput[]): Lookup {
 /**
  * Options for lexiconToValibot
  */
-export interface LexiconToValibotOptions {
+export interface LexiconToValibotOptions<
+  Lexicons extends readonly LexiconInput[] = readonly LexiconInput[],
+> {
   /** Lookup for resolving cross-lexicon references */
-  lookup?: Lookup;
+  lookup?: Lookup<Lexicons>;
   /** Format for blob validation: 'sdk' for parsing fetched records, 'wire' for outgoing. Default: 'sdk' */
   format?: LexiconFormat;
 }
@@ -237,11 +242,12 @@ export function createRefResolver(
  */
 export function lexiconToValibot<
   T extends LexiconInput,
+  Lexicons extends readonly LexiconInput[] = readonly LexiconInput[],
   Format extends LexiconFormat = "sdk",
 >(
   lexicon: T,
-  options: LexiconToValibotOptions = {},
-): InferLexiconValidators<Mutable<T>, {}, Format> {
+  options: LexiconToValibotOptions<Lexicons> = {},
+): InferLexiconValidators<Mutable<T>, BuildExtRefs<Lexicons, Format>, Format> {
   const blobFormat = (options.format ?? "sdk") as Format;
   const defs = lexicon.defs as Record<string, LexUserType>;
 
@@ -308,15 +314,21 @@ export function lexiconToValibot<
     result[defName] = schema;
   }
 
-  return result as InferLexiconValidators<Mutable<T>, {}, Format>;
+  return result as InferLexiconValidators<
+    Mutable<T>,
+    BuildExtRefs<Lexicons, Format>,
+    Format
+  >;
 }
 
 /**
  * Options for xrpcToValibot
  */
-export interface XrpcToValibotOptions {
+export interface XrpcToValibotOptions<
+  Lexicons extends readonly LexiconInput[] = readonly LexiconInput[],
+> {
   /** Lookup for resolving cross-lexicon references */
-  lookup?: Lookup;
+  lookup?: Lookup<Lexicons>;
   /** Format for blob validation: 'sdk' for parsing fetched records, 'wire' for outgoing. Default: 'sdk' */
   format?: LexiconFormat;
 }
@@ -338,11 +350,12 @@ export interface XrpcToValibotOptions {
  */
 export function xrpcToValibot<
   T extends Mutable<LexiconInput>,
+  Lexicons extends readonly LexiconInput[] = readonly LexiconInput[],
   Format extends BlobFormat = "sdk",
 >(
   lexicon: T,
-  options: XrpcToValibotOptions = {},
-): InferXrpcValidators<Mutable<T>, {}, Format> {
+  options: XrpcToValibotOptions<Lexicons> = {},
+): InferXrpcValidators<Mutable<T>, BuildExtRefs<Lexicons, Format>, Format> {
   const blobFormat = (options.format ?? "sdk") as LexiconFormat;
   const defs = lexicon.defs as Record<string, LexUserType>;
 
@@ -385,5 +398,9 @@ export function xrpcToValibot<
     result[defName] = convertXrpcDef(def, ctx);
   }
 
-  return result as InferXrpcValidators<Mutable<T>, {}, Format>;
+  return result as InferXrpcValidators<
+    Mutable<T>,
+    BuildExtRefs<Lexicons, Format>,
+    Format
+  >;
 }

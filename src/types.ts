@@ -1,4 +1,3 @@
-import type { BlobRef as AtprotoBlobRef } from "@atproto/lexicon";
 import type * as v from "valibot";
 
 export type {
@@ -95,8 +94,15 @@ type UntypedBlobRef = {
   mimeType: string;
 };
 
-// SDK format uses the actual BlobRef class from @atproto/lexicon
-type SdkBlobRef = AtprotoBlobRef | UntypedBlobRef;
+// SDK format BlobRef - structural type matching @atproto/lexicon's BlobRef class
+type TypedBlobRef = {
+  ref: { toString(): string };
+  mimeType: string;
+  size: number;
+  original: WireBlobRef | UntypedBlobRef;
+};
+
+type SdkBlobRef = TypedBlobRef | UntypedBlobRef;
 
 // Wire format is the JSON representation
 type WireBlobRefUnion = WireBlobRef | UntypedBlobRef;
@@ -212,23 +218,35 @@ type InferLexObject<
       >
     : {};
 
-// Resolve a ref - local (#name) or external (com.example.type)
+// Resolve a ref - local (#name) or external (com.example.type#defName)
+// LexMap is a map from lexicon IDs to lexicon objects for lazy resolution
 type InferLexRef<
   R extends string,
   Defs,
-  ExtRefs extends ExternalRefsMap = {},
+  LexMap extends ExternalRefsMap = {},
   Format extends BlobFormat = "sdk",
 > =
   // Local ref: #defName
   R extends `#${infer DefName}`
     ? DefName extends keyof Defs
-      ? InferLexType<Defs[DefName], Defs, ExtRefs, Format>
+      ? InferLexType<Defs[DefName], Defs, LexMap, Format>
       : unknown
-    : // External ref: check ExtRefs with both original and #main variants
-      R extends keyof ExtRefs
-      ? ExtRefs[R]
-      : `${R}#main` extends keyof ExtRefs
-        ? ExtRefs[`${R}#main`]
+    : // External ref with def name: lexiconId#defName
+      R extends `${infer LexId}#${infer DefName}`
+      ? LexId extends keyof LexMap
+        ? LexMap[LexId] extends { defs: infer ExtDefs extends Record<string, unknown> }
+          ? DefName extends keyof ExtDefs
+            ? InferLexType<ExtDefs[DefName], ExtDefs, LexMap, Format>
+            : unknown
+          : unknown
+        : unknown
+      : // External ref without def name: lexiconId (defaults to #main)
+        R extends keyof LexMap
+        ? LexMap[R] extends { defs: infer ExtDefs extends Record<string, unknown> }
+          ? "main" extends keyof ExtDefs
+            ? InferLexType<ExtDefs["main"], ExtDefs, LexMap, Format>
+            : unknown
+          : unknown
         : unknown;
 
 // Resolve union of refs
@@ -378,7 +396,7 @@ type InferSubscriptionValidators<
   : never;
 
 // Infer schema for non-XRPC def
-type InferSchemaValidator<
+export type InferSchemaValidator<
   T,
   Defs,
   ExtRefs extends ExternalRefsMap = {},
@@ -424,7 +442,33 @@ export type InferXrpcValidators<
 // Helper to get the output type from a lexicon's def
 export type InferLexiconOutput<
   T extends { defs: Record<string, unknown> },
-  K extends keyof T["defs"],
+  K extends keyof T["defs"] = "main",
   ExtRefs extends ExternalRefsMap = {},
   Format extends BlobFormat = "sdk",
 > = InferLexType<T["defs"][K], T["defs"], ExtRefs, Format>;
+
+/**********************************************************************************/
+/*                                                                                */
+/*                                     Lookup                                     */
+/*                                                                                */
+/**********************************************************************************/
+
+// Input type for lexicons
+export interface LexiconInput {
+  lexicon: 1;
+  id: string;
+  defs: Record<string, unknown>;
+  description?: string;
+  revision?: number;
+}
+
+// Map lexicon IDs to their lexicon objects for direct lookup
+export type LexiconMap<Lexicons extends readonly LexiconInput[]> = {
+  [L in Lexicons[number] as L["id"]]: L;
+};
+
+// BuildExtRefs is now just an alias for LexiconMap - refs are resolved lazily
+export type BuildExtRefs<
+  Lexicons extends readonly LexiconInput[],
+  _Format extends BlobFormat = "sdk",
+> = LexiconMap<Lexicons>;

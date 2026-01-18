@@ -8,16 +8,17 @@ export {
   lexiconToValibot,
   xrpcToValibot,
   type LexiconFormat,
-  type LexiconInput,
   type LexiconToValibotOptions,
   type Lookup,
   type XrpcToValibotOptions,
 } from "./core.js";
 export type {
   BlobFormat,
+  BuildExtRefs,
   InferLexiconOutput,
   InferLexiconValidators,
   InferLexType,
   LexiconDoc,
+  LexiconInput,
   LexUserType,
 } from "./types.js";
