@@ -1,6 +1,6 @@
 import * as v from "valibot";
 import { describe, expectTypeOf, it } from "vitest";
-import { type InferLexiconOutput, lexiconToValibot } from "./index.js";
+import { type InferLexiconOutput, lexiconToValibot } from "../src/core.js";
 
 describe("Type inference", () => {
   it("infers primitive types correctly", () => {

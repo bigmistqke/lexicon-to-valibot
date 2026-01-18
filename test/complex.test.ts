@@ -1,11 +1,16 @@
-import { describe, it, expect } from "vitest";
 import * as v from "valibot";
-import { convertArray, convertObject, convertRef, convertUnion } from "./complex.js";
-import type { ConverterContext, LexArray, LexObject } from "../types.js";
+import { describe, expect, it } from "vitest";
+import {
+  convertArray,
+  convertObject,
+  convertRef,
+  convertUnion,
+} from "../src/converters/complex.js";
+import type { ConverterContext, LexArray, LexObject } from "../src/types.js";
 
 // Helper to create a basic context
 function createContext(
-  resolveRef: (ref: string) => v.GenericSchema = () => v.string()
+  resolveRef: (ref: string) => v.GenericSchema = () => v.string(),
 ): ConverterContext {
   return {
     lexiconId: "test.lexicon",
@@ -141,7 +146,10 @@ describe("convertRef", () => {
       return v.unknown();
     };
 
-    const schema = convertRef({ type: "ref", ref: "#user" }, createContext(resolveRef));
+    const schema = convertRef(
+      { type: "ref", ref: "#user" },
+      createContext(resolveRef),
+    );
 
     expect(v.safeParse(schema, { name: "John" }).success).toBe(true);
     expect(v.safeParse(schema, { name: 123 }).success).toBe(false);
@@ -150,10 +158,7 @@ describe("convertRef", () => {
 
 describe("convertUnion", () => {
   it("handles empty union", () => {
-    const schema = convertUnion(
-      { type: "union", refs: [] },
-      createContext()
-    );
+    const schema = convertUnion({ type: "union", refs: [] }, createContext());
 
     expect(v.safeParse(schema, "anything").success).toBe(false);
   });
@@ -162,7 +167,7 @@ describe("convertUnion", () => {
     const resolveRef = () => v.string();
     const schema = convertUnion(
       { type: "union", refs: ["#single"] },
-      createContext(resolveRef)
+      createContext(resolveRef),
     );
 
     expect(v.safeParse(schema, "valid").success).toBe(true);
@@ -178,7 +183,7 @@ describe("convertUnion", () => {
 
     const schema = convertUnion(
       { type: "union", refs: ["#string", "#number"] },
-      createContext(resolveRef)
+      createContext(resolveRef),
     );
 
     expect(v.safeParse(schema, "text").success).toBe(true);

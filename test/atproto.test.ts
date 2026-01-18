@@ -1,6 +1,10 @@
 import * as v from "valibot";
 import { describe, expect, it } from "vitest";
-import { convertBlob, convertCidLink, convertToken } from "./atproto.js";
+import {
+  convertBlob,
+  convertCidLink,
+  convertToken,
+} from "../src/converters/atproto.js";
 
 // Mock BlobRef-like object for testing (duck typing)
 function createMockBlobRef(cid: string, mimeType: string, size: number) {
@@ -19,7 +23,9 @@ describe("convertBlob", () => {
 
       const typedBlob = {
         $type: "blob",
-        ref: { $link: "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku" },
+        ref: {
+          $link: "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku",
+        },
         mimeType: "image/jpeg",
         size: 12345,
       };
@@ -41,7 +47,9 @@ describe("convertBlob", () => {
     it("rejects invalid blob structure", () => {
       const schema = convertBlob({ type: "blob" }, "wire");
 
-      expect(v.safeParse(schema, { mimeType: "image/jpeg" }).success).toBe(false);
+      expect(v.safeParse(schema, { mimeType: "image/jpeg" }).success).toBe(
+        false,
+      );
       expect(v.safeParse(schema, "blob-string").success).toBe(false);
       expect(v.safeParse(schema, null).success).toBe(false);
     });
@@ -55,7 +63,7 @@ describe("convertBlob", () => {
       const blobRef = createMockBlobRef(
         "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku",
         "image/jpeg",
-        12345
+        12345,
       );
 
       expect(v.safeParse(schema, blobRef).success).toBe(true);
@@ -78,11 +86,12 @@ describe("convertBlob", () => {
       // Wire format has $type and ref.$link but no original
       const wireBlob = {
         $type: "blob",
-        ref: { $link: "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku" },
+        ref: {
+          $link: "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku",
+        },
         mimeType: "image/jpeg",
         size: 12345,
       };
-
 
       expect(v.safeParse(schema, wireBlob).success).toBe(false);
     });
@@ -113,7 +122,9 @@ describe("convertToken", () => {
   it("validates token as string", () => {
     const schema = convertToken({ type: "token" });
 
-    expect(v.safeParse(schema, "app.bsky.feed.post#mention").success).toBe(true);
+    expect(v.safeParse(schema, "app.bsky.feed.post#mention").success).toBe(
+      true,
+    );
     expect(v.safeParse(schema, "any-token-value").success).toBe(true);
   });
 

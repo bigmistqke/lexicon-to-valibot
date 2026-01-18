@@ -1,6 +1,6 @@
-import { describe, it, expect, expectTypeOf } from "vitest";
 import * as v from "valibot";
-import { xrpcToValibot } from "../index.js";
+import { describe, expect, expectTypeOf, it } from "vitest";
+import { xrpcToValibot } from "../src/core.js";
 
 describe("XRPC Query", () => {
   it("converts query with parameters and output", () => {
@@ -36,14 +36,30 @@ describe("XRPC Query", () => {
     const { main } = xrpcToValibot(lexicon);
 
     // Test parameters validator
-    expect(v.safeParse(main.parameters, { uri: "at://did:plc:abc/app.bsky.feed.post/123" }).success).toBe(true);
-    expect(v.safeParse(main.parameters, { uri: "at://did:plc:abc/app.bsky.feed.post/123", limit: 50 }).success).toBe(true);
+    expect(
+      v.safeParse(main.parameters, {
+        uri: "at://did:plc:abc/app.bsky.feed.post/123",
+      }).success,
+    ).toBe(true);
+    expect(
+      v.safeParse(main.parameters, {
+        uri: "at://did:plc:abc/app.bsky.feed.post/123",
+        limit: 50,
+      }).success,
+    ).toBe(true);
     expect(v.safeParse(main.parameters, {}).success).toBe(false); // missing required uri
-    expect(v.safeParse(main.parameters, { uri: "at://did:plc:abc/app.bsky.feed.post/123", limit: 0 }).success).toBe(false); // below minimum
+    expect(
+      v.safeParse(main.parameters, {
+        uri: "at://did:plc:abc/app.bsky.feed.post/123",
+        limit: 0,
+      }).success,
+    ).toBe(false); // below minimum
 
     // Test output validator
     expect(v.safeParse(main.output, { items: ["a", "b"] }).success).toBe(true);
-    expect(v.safeParse(main.output, { items: [], cursor: "abc" }).success).toBe(true);
+    expect(v.safeParse(main.output, { items: [], cursor: "abc" }).success).toBe(
+      true,
+    );
     expect(v.safeParse(main.output, {}).success).toBe(false); // missing required items
   });
 
@@ -118,16 +134,18 @@ describe("XRPC Procedure", () => {
         repo: "did:plc:abc123",
         collection: "app.bsky.feed.post",
         record: { text: "Hello" },
-      }).success
+      }).success,
     ).toBe(true);
-    expect(v.safeParse(main.input, { repo: "did:plc:abc" }).success).toBe(false); // missing required fields
+    expect(v.safeParse(main.input, { repo: "did:plc:abc" }).success).toBe(
+      false,
+    ); // missing required fields
 
     // Test output validator
     expect(
       v.safeParse(main.output, {
         uri: "at://did:plc:abc/app.bsky.feed.post/123",
         cid: "bafyreiabc",
-      }).success
+      }).success,
     ).toBe(true);
   });
 
@@ -209,7 +227,9 @@ describe("XRPC Subscription", () => {
 
     expect(v.safeParse(main.parameters, {}).success).toBe(true);
     expect(v.safeParse(main.parameters, { cursor: 100 }).success).toBe(true);
-    expect(v.safeParse(main.message, { seq: 1, event: "commit" }).success).toBe(true);
+    expect(v.safeParse(main.message, { seq: 1, event: "commit" }).success).toBe(
+      true,
+    );
     expect(v.safeParse(main.message, { seq: 1 }).success).toBe(false); // missing event
   });
 });

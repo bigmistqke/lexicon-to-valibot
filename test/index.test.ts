@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
 import * as v from "valibot";
-import { lexiconToValibot, type LexiconInput } from "./index.js";
+import { describe, expect, it } from "vitest";
+import { lexiconToValibot, type LexiconInput } from "../src/core.js";
 
 describe("lexiconToValibot", () => {
   it("converts a simple record lexicon", () => {
@@ -25,10 +25,16 @@ describe("lexiconToValibot", () => {
     const validators = lexiconToValibot(lexicon);
 
     expect(v.safeParse(validators.main, { text: "Hello" }).success).toBe(true);
-    expect(v.safeParse(validators.main, { text: "Hello", count: 5 }).success).toBe(true);
+    expect(
+      v.safeParse(validators.main, { text: "Hello", count: 5 }).success,
+    ).toBe(true);
     expect(v.safeParse(validators.main, {}).success).toBe(false);
-    expect(v.safeParse(validators.main, { text: "a".repeat(301) }).success).toBe(false);
-    expect(v.safeParse(validators.main, { text: "Hi", count: -1 }).success).toBe(false);
+    expect(
+      v.safeParse(validators.main, { text: "a".repeat(301) }).success,
+    ).toBe(false);
+    expect(
+      v.safeParse(validators.main, { text: "Hi", count: -1 }).success,
+    ).toBe(false);
   });
 
   it("converts multiple defs", () => {
@@ -58,7 +64,9 @@ describe("lexiconToValibot", () => {
     expect(v.safeParse(validators.main, { name: "Test" }).success).toBe(true);
     expect(v.safeParse(validators.secondary, { value: 42 }).success).toBe(true);
     expect(v.safeParse(validators.main, { value: 42 }).success).toBe(false);
-    expect(v.safeParse(validators.secondary, { name: "Test" }).success).toBe(false);
+    expect(v.safeParse(validators.secondary, { name: "Test" }).success).toBe(
+      false,
+    );
   });
 
   it("handles local refs between defs", () => {
@@ -89,19 +97,19 @@ describe("lexiconToValibot", () => {
     expect(
       v.safeParse(validators.main, {
         author: { name: "John Doe" },
-      }).success
+      }).success,
     ).toBe(true);
 
     expect(
       v.safeParse(validators.main, {
         author: { name: "Jane", bio: "Developer" },
-      }).success
+      }).success,
     ).toBe(true);
 
     expect(
       v.safeParse(validators.main, {
         author: {},
-      }).success
+      }).success,
     ).toBe(false);
   });
 
@@ -136,26 +144,26 @@ describe("lexiconToValibot", () => {
     expect(
       v.safeParse(validators.main, {
         items: [{ id: "1" }, { id: "2", label: "Second" }],
-      }).success
+      }).success,
     ).toBe(true);
 
     expect(
       v.safeParse(validators.main, {
         items: [],
-      }).success
+      }).success,
     ).toBe(true);
 
     expect(
       v.safeParse(validators.main, {
         items: [{}],
-      }).success
+      }).success,
     ).toBe(false);
 
     // Too many items
     expect(
       v.safeParse(validators.main, {
         items: Array(11).fill({ id: "x" }),
-      }).success
+      }).success,
     ).toBe(false);
   });
 
@@ -196,19 +204,19 @@ describe("lexiconToValibot", () => {
     expect(
       v.safeParse(validators.main, {
         content: { text: "Hello" },
-      }).success
+      }).success,
     ).toBe(true);
 
     expect(
       v.safeParse(validators.main, {
         content: { url: "https://example.com/image.jpg" },
-      }).success
+      }).success,
     ).toBe(true);
 
     expect(
       v.safeParse(validators.main, {
         content: { other: "field" },
-      }).success
+      }).success,
     ).toBe(false);
   });
 
@@ -236,7 +244,7 @@ describe("lexiconToValibot", () => {
           mimeType: "image/png",
           size: 5000,
         },
-      }).success
+      }).success,
     ).toBe(true);
 
     expect(v.safeParse(validators.main, {}).success).toBe(true);
@@ -270,7 +278,7 @@ describe("lexiconToValibot", () => {
         optionalField: "value",
         nullableRequired: "value",
         nullableOptional: "value",
-      }).success
+      }).success,
     ).toBe(true);
 
     // Only required fields
@@ -278,7 +286,7 @@ describe("lexiconToValibot", () => {
       v.safeParse(validators.main, {
         requiredField: "value",
         nullableRequired: "value",
-      }).success
+      }).success,
     ).toBe(true);
 
     // Nullable fields can be null
@@ -287,14 +295,14 @@ describe("lexiconToValibot", () => {
         requiredField: "value",
         nullableRequired: null,
         nullableOptional: null,
-      }).success
+      }).success,
     ).toBe(true);
 
     // Missing required field
     expect(
       v.safeParse(validators.main, {
         nullableRequired: "value",
-      }).success
+      }).success,
     ).toBe(false);
 
     // Non-nullable field cannot be null
@@ -302,7 +310,7 @@ describe("lexiconToValibot", () => {
       v.safeParse(validators.main, {
         requiredField: null,
         nullableRequired: "value",
-      }).success
+      }).success,
     ).toBe(false);
   });
 
@@ -330,7 +338,7 @@ describe("lexiconToValibot", () => {
         createdAt: "2024-01-01T12:00:00Z",
         did: "did:plc:abc123",
         handle: "user.bsky.social",
-      }).success
+      }).success,
     ).toBe(true);
 
     expect(
@@ -338,7 +346,7 @@ describe("lexiconToValibot", () => {
         createdAt: "not-a-date",
         did: "did:plc:abc123",
         handle: "user.bsky.social",
-      }).success
+      }).success,
     ).toBe(false);
   });
 });

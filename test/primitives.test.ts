@@ -1,12 +1,12 @@
-import { describe, it, expect } from "vitest";
 import * as v from "valibot";
+import { describe, expect, it } from "vitest";
 import {
   convertBoolean,
+  convertBytes,
   convertInteger,
   convertString,
   convertUnknown,
-  convertBytes,
-} from "./primitives.js";
+} from "../src/converters/primitives.js";
 
 describe("convertBoolean", () => {
   it("converts basic boolean", () => {
@@ -106,7 +106,9 @@ describe("convertString", () => {
   it("handles uri format", () => {
     const schema = convertString({ type: "string", format: "uri" });
     expect(v.safeParse(schema, "https://example.com").success).toBe(true);
-    expect(v.safeParse(schema, "http://localhost:3000/path").success).toBe(true);
+    expect(v.safeParse(schema, "http://localhost:3000/path").success).toBe(
+      true,
+    );
     expect(v.safeParse(schema, "not-a-url").success).toBe(false);
   });
 
@@ -184,6 +186,8 @@ describe("convertBytes", () => {
     const schema = convertBytes({ type: "bytes", maxLength: 3 });
     expect(v.safeParse(schema, new Uint8Array([1, 2, 3])).success).toBe(true);
     expect(v.safeParse(schema, new Uint8Array([1])).success).toBe(true);
-    expect(v.safeParse(schema, new Uint8Array([1, 2, 3, 4])).success).toBe(false);
+    expect(v.safeParse(schema, new Uint8Array([1, 2, 3, 4])).success).toBe(
+      false,
+    );
   });
 });
