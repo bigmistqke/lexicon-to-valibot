@@ -1,10 +1,10 @@
 import * as v from "valibot";
 import { describe, expect, it } from "vitest";
-import { lexiconToValibot, type LexiconInput } from "../src/core.js";
+import { lexiconToValibot, type LexiconInput } from "../src/index.js";
 
 describe("lexiconToValibot", () => {
   it("converts a simple record lexicon", () => {
-    const lexicon: LexiconInput = {
+    const lexicon = {
       lexicon: 1,
       id: "com.example.simpleRecord",
       defs: {
@@ -20,9 +20,9 @@ describe("lexiconToValibot", () => {
           },
         },
       },
-    };
+    } as const;
 
-    const validators = lexiconToValibot(lexicon);
+    const validators = lexiconToValibot([lexicon])[lexicon.id];
 
     expect(v.safeParse(validators.main, { text: "Hello" }).success).toBe(true);
     expect(
@@ -38,7 +38,7 @@ describe("lexiconToValibot", () => {
   });
 
   it("converts multiple defs", () => {
-    const lexicon: LexiconInput = {
+    const lexicon = {
       lexicon: 1,
       id: "com.example.multiDef",
       defs: {
@@ -57,9 +57,9 @@ describe("lexiconToValibot", () => {
           },
         },
       },
-    };
+    } as const;
 
-    const validators = lexiconToValibot(lexicon);
+    const validators = lexiconToValibot([lexicon])[lexicon.id];
 
     expect(v.safeParse(validators.main, { name: "Test" }).success).toBe(true);
     expect(v.safeParse(validators.secondary, { value: 42 }).success).toBe(true);
@@ -70,7 +70,7 @@ describe("lexiconToValibot", () => {
   });
 
   it("handles local refs between defs", () => {
-    const lexicon: LexiconInput = {
+    const lexicon = {
       lexicon: 1,
       id: "com.example.localRef",
       defs: {
@@ -90,9 +90,9 @@ describe("lexiconToValibot", () => {
           },
         },
       },
-    };
+    } as const;
 
-    const validators = lexiconToValibot(lexicon);
+    const validators = lexiconToValibot([lexicon])[lexicon.id];
 
     expect(
       v.safeParse(validators.main, {
@@ -114,7 +114,7 @@ describe("lexiconToValibot", () => {
   });
 
   it("handles arrays of objects", () => {
-    const lexicon: LexiconInput = {
+    const lexicon = {
       lexicon: 1,
       id: "com.example.arrayTest",
       defs: {
@@ -137,9 +137,9 @@ describe("lexiconToValibot", () => {
           },
         },
       },
-    };
+    } as const;
 
-    const validators = lexiconToValibot(lexicon);
+    const validators = lexiconToValibot([lexicon])[lexicon.id];
 
     expect(
       v.safeParse(validators.main, {
@@ -168,7 +168,7 @@ describe("lexiconToValibot", () => {
   });
 
   it("handles union types", () => {
-    const lexicon: LexiconInput = {
+    const lexicon = {
       lexicon: 1,
       id: "com.example.unionTest",
       defs: {
@@ -197,9 +197,9 @@ describe("lexiconToValibot", () => {
           },
         },
       },
-    };
+    } as const;
 
-    const validators = lexiconToValibot(lexicon);
+    const validators = lexiconToValibot([lexicon])[lexicon.id];
 
     expect(
       v.safeParse(validators.main, {
@@ -221,7 +221,7 @@ describe("lexiconToValibot", () => {
   });
 
   it("handles blob types (wire format)", () => {
-    const lexicon: LexiconInput = {
+    const lexicon = {
       lexicon: 1,
       id: "com.example.blobTest",
       defs: {
@@ -232,9 +232,9 @@ describe("lexiconToValibot", () => {
           },
         },
       },
-    };
+    } as const;
 
-    const validators = lexiconToValibot(lexicon, { format: "wire" });
+    const validators = lexiconToValibot([lexicon], { format: "wire" })[lexicon.id];
 
     expect(
       v.safeParse(validators.main, {
@@ -251,7 +251,7 @@ describe("lexiconToValibot", () => {
   });
 
   it("handles nullable and optional properties", () => {
-    const lexicon: LexiconInput = {
+    const lexicon = {
       lexicon: 1,
       id: "com.example.nullableTest",
       defs: {
@@ -267,9 +267,9 @@ describe("lexiconToValibot", () => {
           },
         },
       },
-    };
+    } as const;
 
-    const validators = lexiconToValibot(lexicon);
+    const validators = lexiconToValibot([lexicon])[lexicon.id];
 
     // All fields provided
     expect(
@@ -315,7 +315,7 @@ describe("lexiconToValibot", () => {
   });
 
   it("handles string formats", () => {
-    const lexicon: LexiconInput = {
+    const lexicon = {
       lexicon: 1,
       id: "com.example.formatTest",
       defs: {
@@ -329,9 +329,9 @@ describe("lexiconToValibot", () => {
           },
         },
       },
-    };
+    } as const;
 
-    const validators = lexiconToValibot(lexicon);
+    const validators = lexiconToValibot([lexicon])[lexicon.id];
 
     expect(
       v.safeParse(validators.main, {

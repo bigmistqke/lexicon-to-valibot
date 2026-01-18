@@ -1,22 +1,5 @@
 import * as v from "valibot";
-import {
-  convertBlob,
-  convertCidLink,
-  convertToken,
-} from "./converters/atproto.js";
-import {
-  convertArray,
-  convertObject,
-  convertRef,
-  convertUnion,
-} from "./converters/complex.js";
-import {
-  convertBoolean,
-  convertBytes,
-  convertInteger,
-  convertString,
-  convertUnknown,
-} from "./converters/primitives.js";
+import { convertType } from "./converters/convert-type.js";
 import {
   convertProcedure,
   convertQuery,
@@ -30,25 +13,32 @@ import type {
   ConverterContext,
   InferLexiconValidators,
   InferXrpcValidators,
-  LexArray,
-  LexBlob,
-  LexBoolean,
-  LexBytes,
-  LexCidLink,
-  LexInteger,
-  LexObject,
-  LexRecord,
-  LexRef,
-  LexRefUnion,
-  LexString,
-  LexToken,
-  LexUnknown,
   LexUserType,
   LexXrpcProcedure,
   LexXrpcQuery,
   LexXrpcSubscription,
+  Mutable,
 } from "./types.js";
-import { Mutable } from "./types.js";
+
+/**
+ * Result of looking up a def in a lexicon
+ */
+export interface DefLookupResult {
+  defs: Record<string, LexUserType>;
+  def: LexUserType;
+}
+
+/**
+ * Configuration for the ref resolver
+ */
+export interface RefResolverConfig {
+  /** Function to look up a def by lexicon ID and def name */
+  lookupDef: (lexiconId: string, defName: string) => DefLookupResult | null;
+  /** Cache for resolved schemas */
+  cache: Map<string, v.GenericSchema>;
+  /** Format for blob validation */
+  blobFormat: LexiconFormat;
+}
 
 export type LexiconFormat = "sdk" | "wire";
 
@@ -61,72 +51,32 @@ export interface LexiconInput {
   revision?: number;
 }
 
-// Options for lexiconToValibot
-export interface LexiconToValibotOptions {
-  /** External ref schemas (e.g., com.atproto.repo.strongRef) */
-  externalRefs?: Record<string, v.GenericSchema>;
-  /** Format for blob validation: 'sdk' for parsing fetched records, 'wire' for outgoing. Default: 'sdk' */
-  format?: LexiconFormat;
-}
-
-export type { ProcedureValidators, QueryValidators, SubscriptionValidators };
-
 type XrpcResult =
   | QueryValidators
   | ProcedureValidators
   | SubscriptionValidators;
 
-export function convertType(
-  schema: unknown,
-  ctx: ConverterContext,
-): v.GenericSchema {
-  if (typeof schema !== "object" || schema === null) {
-    throw new Error(`Invalid schema: expected object, got ${typeof schema}`);
-  }
-
-  const schemaObj = schema as { type?: string };
-
-  switch (schemaObj.type) {
-    // Primitives
-    case "boolean":
-      return convertBoolean(schema as LexBoolean);
-    case "integer":
-      return convertInteger(schema as LexInteger);
-    case "string":
-      return convertString(schema as LexString);
-    case "unknown":
-      return convertUnknown(schema as LexUnknown);
-
-    // IPLD types
-    case "bytes":
-      return convertBytes(schema as LexBytes);
-    case "cid-link":
-      return convertCidLink(schema as LexCidLink);
-
-    // AT Protocol types
-    case "blob":
-      return convertBlob(schema as LexBlob, ctx.blobFormat);
-    case "token":
-      return convertToken(schema as LexToken);
-
-    // Complex types
-    case "array":
-      return convertArray(schema as LexArray, ctx, convertType);
-    case "object":
-      return convertObject(schema as LexObject, ctx, convertType);
-    case "ref":
-      return convertRef(schema as LexRef, ctx);
-    case "union":
-      return convertUnion(schema as LexRefUnion, ctx);
-
-    // Record type
-    case "record":
-      return convertObject((schema as LexRecord).record, ctx, convertType);
-
-    default:
-      throw new Error(`Unknown schema type: ${schemaObj.type}`);
-  }
+/**
+ * Options for lexiconToValibot
+ */
+export interface LexiconToValibotOptions {
+  /** Format for blob validation: 'sdk' for parsing fetched records, 'wire' for outgoing. Default: 'sdk' */
+  format?: LexiconFormat;
 }
+
+/**
+ * Result of lexiconToValibot - validators for each lexicon keyed by ID.
+ */
+export type LexiconValidators<
+  TInputs extends readonly LexiconInput[],
+  TType extends LexiconFormat = LexiconFormat,
+> = {
+  [K in TInputs[number] as K["id"]]: InferLexiconValidators<
+    Mutable<K>,
+    {},
+    TType
+  >;
+};
 
 // Convert XRPC def - returns validators object
 function convertXrpcDef(schema: unknown, ctx: ConverterContext): XrpcResult {
@@ -165,26 +115,40 @@ export function isRecordDef(schema: unknown): boolean {
   return (schema as { type?: string }).type === "record";
 }
 
-function createRefResolver(
-  lexiconId: string,
-  defs: Record<string, LexUserType>,
-  cache: Map<string, v.GenericSchema>,
-  externalRefs: Record<string, v.GenericSchema> = {},
-  blobFormat: LexiconFormat = "sdk",
+/**
+ * Create a ref resolver with a configurable lookup strategy.
+ * This allows both single-lexicon and bundle-wide resolution.
+ */
+export function createRefResolver(
+  currentLexiconId: string,
+  config: RefResolverConfig,
 ): (ref: string) => v.GenericSchema {
-  return (ref: string) => {
+  const { lookupDef, cache, blobFormat } = config;
+
+  return (ref: string): v.GenericSchema => {
     // Parse the ref - could be:
     // - "#defName" (local ref)
     // - "com.example.lexicon#defName" (external ref)
     // - "com.example.lexicon" (main def of external lexicon)
 
     let resolvedRef = ref;
+    let targetLexiconId = currentLexiconId;
+    let defName = "";
 
     if (ref.startsWith("#")) {
       // Local ref
-      resolvedRef = `${lexiconId}${ref}`;
-    } else if (!ref.includes("#")) {
+      resolvedRef = `${currentLexiconId}${ref}`;
+      defName = ref.slice(1);
+    } else if (ref.includes("#")) {
+      // External ref with def name
+      const [nsid, name] = ref.split("#");
+      targetLexiconId = nsid;
+      defName = name;
+      resolvedRef = ref;
+    } else {
       // External ref to main def
+      targetLexiconId = ref;
+      defName = "main";
       resolvedRef = `${ref}#main`;
     }
 
@@ -193,117 +157,140 @@ function createRefResolver(
       return cache.get(resolvedRef)!;
     }
 
-    // Check external refs (try both original and resolved)
-    if (externalRefs[ref]) {
-      cache.set(resolvedRef, externalRefs[ref]);
-      return externalRefs[ref];
-    }
-    if (externalRefs[resolvedRef]) {
-      cache.set(resolvedRef, externalRefs[resolvedRef]);
-      return externalRefs[resolvedRef];
-    }
-
-    // Parse the full ref
-    const [nsid, defName] = resolvedRef.includes("#")
-      ? resolvedRef.split("#")
-      : [resolvedRef, "main"];
-
-    // Only handle local refs
-    if (nsid !== lexiconId) {
-      // External ref not found in externalRefs
+    // Look up the def using the provided lookup function
+    const lookup = lookupDef(targetLexiconId, defName);
+    if (!lookup) {
       console.warn(
-        `External ref not resolved: ${ref} - provide it in externalRefs option`,
+        `Ref not resolved: ${ref} - include the lexicon in the bundle`,
       );
       return v.unknown();
     }
 
-    const def = defs[defName];
-    if (!def) {
-      throw new Error(`Ref not found: ${ref} (resolved to ${resolvedRef})`);
-    }
-
-    // Create context for conversion
+    // Create context for conversion (using the target lexicon's context)
     const ctx: ConverterContext = {
-      lexiconId,
-      defs,
-      resolveRef: createRefResolver(
-        lexiconId,
-        defs,
-        cache,
-        externalRefs,
-        blobFormat,
-      ),
+      lexiconId: targetLexiconId,
+      defs: lookup.defs,
+      resolveRef: createRefResolver(targetLexiconId, config),
       blobFormat,
     };
 
     // Convert and cache
-    const schema = convertType(def, ctx);
+    const schema = convertType(lookup.def, ctx);
     cache.set(resolvedRef, schema);
     return schema;
   };
 }
 
-// Helper type to convert schema map to output type map
-type InferSchemaOutputs<T extends Record<string, v.GenericSchema>> = {
-  [K in keyof T]: v.InferOutput<T[K]>;
-};
-
 /**
- * Convert a lexicon to valibot schemas for records and objects.
- * Skips XRPC types (query, procedure, subscription) - use xrpcToValibot for those.
+ * Convert lexicons to valibot validators.
+ * Cross-lexicon references are automatically resolved.
+ *
+ * @example
+ * ```ts
+ * const validators = lexiconToValibot([
+ *   projectLexicon,
+ *   audioEffectLexicon,
+ *   visualEffectLexicon,
+ * ], { format: 'sdk' })
+ *
+ * // Access validators by lexicon ID
+ * const project = validators['app.example.project']
+ * ```
  */
-export function lexiconToValibot<
-  T extends LexiconInput,
-  ExtRefs extends Record<string, v.GenericSchema> = {},
-  Format extends BlobFormat = "sdk",
->(
-  lexicon: T,
-  options: { externalRefs?: ExtRefs; format?: Format } = {},
-): InferLexiconValidators<Mutable<T>, InferSchemaOutputs<ExtRefs>, Format> {
+export function lexiconToValibot<const T extends readonly LexiconInput[]>(
+  lexicons: T,
+  options: LexiconToValibotOptions = {},
+): LexiconValidators<
+  T,
+  typeof options.format extends LexiconFormat ? typeof options.format : "sdk"
+> {
   const blobFormat = options.format ?? "sdk";
-  const cache = new Map<string, v.GenericSchema>();
-  const resolveRef = createRefResolver(
-    lexicon.id,
-    lexicon.defs as Record<string, LexUserType>,
-    cache,
-    options.externalRefs ?? {},
-    blobFormat,
-  );
 
-  const ctx: ConverterContext = {
-    lexiconId: lexicon.id,
-    defs: lexicon.defs,
-    resolveRef,
+  // Build a map of lexiconId -> { defs } for quick lookup
+  const lexiconMap = new Map<
+    string,
+    { id: string; defs: Record<string, LexUserType> }
+  >();
+  for (const lexicon of lexicons) {
+    lexiconMap.set(lexicon.id, {
+      id: lexicon.id,
+      defs: lexicon.defs as Record<string, LexUserType>,
+    });
+  }
+
+  // Shared cache for all lexicons
+  const cache = new Map<string, v.GenericSchema>();
+
+  // Create resolver config for bundle-wide lookup
+  const config: RefResolverConfig = {
+    lookupDef: (lexiconId, defName) => {
+      const lexicon = lexiconMap.get(lexiconId);
+      if (!lexicon) return null;
+      const def = lexicon.defs[defName];
+      if (!def) return null;
+      return { defs: lexicon.defs, def };
+    },
+    cache,
     blobFormat,
   };
 
-  const result: Record<string, v.GenericSchema> = {};
+  // Build validators for each lexicon
+  function buildValidators(
+    lexicon: LexiconInput,
+  ): Record<string, v.GenericSchema> {
+    const resolveRef = createRefResolver(lexicon.id, config);
 
-  for (const [defName, def] of Object.entries(lexicon.defs)) {
-    // Skip XRPC types
-    if (isXrpcDef(def)) continue;
+    const ctx: ConverterContext = {
+      lexiconId: lexicon.id,
+      defs: lexicon.defs,
+      resolveRef,
+      blobFormat,
+    };
 
-    let schema = convertType(def, ctx);
+    const result: Record<string, v.GenericSchema> = {};
 
-    // For wire format, wrap record types with $type
-    if (blobFormat === "wire" && isRecordDef(def)) {
-      const $type =
-        defName === "main" ? lexicon.id : `${lexicon.id}#${defName}`;
-      schema = v.object({
-        $type: v.literal($type),
-        ...("entries" in schema
-          ? (schema as v.ObjectSchema<v.ObjectEntries, undefined>).entries
-          : {}),
-      });
+    for (const [defName, def] of Object.entries(lexicon.defs)) {
+      // Skip XRPC types
+      if (isXrpcDef(def)) continue;
+
+      const fullRef = `${lexicon.id}#${defName}`;
+
+      // Check cache first
+      if (cache.has(fullRef)) {
+        result[defName] = cache.get(fullRef)!;
+        continue;
+      }
+
+      let schema = convertType(def, ctx);
+
+      // For wire format, wrap record types with $type
+      if (blobFormat === "wire" && isRecordDef(def)) {
+        const $type =
+          defName === "main" ? lexicon.id : `${lexicon.id}#${defName}`;
+        schema = v.object({
+          $type: v.literal($type),
+          ...("entries" in schema
+            ? (schema as v.ObjectSchema<v.ObjectEntries, undefined>).entries
+            : {}),
+        });
+      }
+
+      cache.set(fullRef, schema);
+      result[defName] = schema;
     }
 
-    result[defName] = schema;
+    return result;
   }
 
-  return result as InferLexiconValidators<
-    Mutable<T>,
-    InferSchemaOutputs<ExtRefs>,
-    Format
+  // Build result with validators for each lexicon keyed by ID
+  const result: Record<string, Record<string, v.GenericSchema>> = {};
+  for (const lexicon of lexicons) {
+    result[lexicon.id] = buildValidators(lexicon);
+  }
+
+  return result as LexiconValidators<
+    T,
+    typeof options.format extends LexiconFormat ? typeof options.format : "sdk"
   >;
 }
 
@@ -313,21 +300,27 @@ export function lexiconToValibot<
  */
 export function xrpcToValibot<
   T extends Mutable<LexiconInput>,
-  ExtRefs extends Record<string, v.GenericSchema> = {},
   Format extends BlobFormat = "sdk",
 >(
   lexicon: T,
-  options: { externalRefs?: ExtRefs; format?: Format } = {},
-): InferXrpcValidators<Mutable<T>, InferSchemaOutputs<ExtRefs>, Format> {
+  options: { format?: Format } = {},
+): InferXrpcValidators<Mutable<T>, {}, Format> {
   const blobFormat = options.format ?? "sdk";
-  const cache = new Map<string, v.GenericSchema>();
-  const resolveRef = createRefResolver(
-    lexicon.id,
-    lexicon.defs as Record<string, LexUserType>,
-    cache,
-    options.externalRefs ?? {},
+  const defs = lexicon.defs as Record<string, LexUserType>;
+
+  // Single-lexicon lookup: only resolves local refs
+  const config: RefResolverConfig = {
+    lookupDef: (lexiconId, defName) => {
+      if (lexiconId !== lexicon.id) return null;
+      const def = defs[defName];
+      if (!def) return null;
+      return { defs, def };
+    },
+    cache: new Map<string, v.GenericSchema>(),
     blobFormat,
-  );
+  };
+
+  const resolveRef = createRefResolver(lexicon.id, config);
 
   const ctx: ConverterContext = {
     lexiconId: lexicon.id,
@@ -344,9 +337,5 @@ export function xrpcToValibot<
     result[defName] = convertXrpcDef(def, ctx);
   }
 
-  return result as InferXrpcValidators<
-    Mutable<T>,
-    InferSchemaOutputs<ExtRefs>,
-    Format
-  >;
+  return result as InferXrpcValidators<Mutable<T>, {}, Format>;
 }

@@ -2,71 +2,54 @@ import { LexUserType } from "@atproto/lexicon";
 import * as v from "valibot";
 import {
   convertType,
+  createRefResolver,
   isRecordDef,
   isXrpcDef,
   LexiconFormat,
   LexiconInput,
+  RefResolverConfig,
 } from "./core";
 import { ConverterContext, InferLexiconValidators, Mutable } from "./types";
 
 /**
- * Options for createLexiconBundle
+ * Options for lexiconToValibot
  */
-export interface LexiconBundleOptions {
-  /** External ref schemas (e.g., atprotoRefs for com.atproto.* types) */
-  externalRefs?: Record<string, v.GenericSchema>;
+export interface LexiconToValibotOptions {
   /** Format for blob validation: 'sdk' for parsing fetched records, 'wire' for outgoing. Default: 'sdk' */
   format?: LexiconFormat;
 }
 
 /**
- * A bundle of lexicons that can reference each other.
- * Provides validators for each lexicon with cross-references automatically resolved.
+ * Result of lexiconToValibot - validators for each lexicon keyed by ID.
  */
-export interface LexiconBundle<
+export type LexiconValidators<
   TInputs extends readonly LexiconInput[],
-  TExtRefs extends Record<string, any> = Record<string, any>,
-> {
-  sdk: LexiconBundleKind<TInputs, TExtRefs, "sdk">;
-  wire: LexiconBundleKind<TInputs, TExtRefs, "wire">;
-}
-
-export type LexiconBundleKind<
-  TInputs extends readonly LexiconInput[],
-  TExtRefs extends Record<string, any> = Record<string, any>,
   TType extends LexiconFormat = LexiconFormat,
 > = {
-  [K in TInputs[number] as K["id"]]: InferLexiconValidators<
-    Mutable<K>,
-    TExtRefs,
-    TType
-  >;
+  [K in TInputs[number] as K["id"]]: InferLexiconValidators<Mutable<K>, {}, TType>;
 };
 
 /**
- * Create a bundle of lexicons that can reference each other.
+ * Convert lexicons to valibot validators.
  * Cross-lexicon references are automatically resolved.
  *
  * @example
  * ```ts
- * const bundle = createLexiconBundle([
+ * const validators = lexiconToValibot([
  *   projectLexicon,
  *   audioEffectLexicon,
  *   visualEffectLexicon,
- * ], { externalRefs: atprotoRefs })
+ * ], { format: 'sdk' })
  *
- * // Get validators for a specific lexicon
- * const projectValidators = bundle.validators(projectLexicon)
- *
- * // Or access by ID
- * const audioValidators = bundle.byId['app.eddy.audioEffect']
+ * // Access validators by lexicon ID
+ * const project = validators['app.example.project']
  * ```
  */
-export function bundleLexicons<const T extends readonly LexiconInput[]>(
+export function lexiconToValibot<const T extends readonly LexiconInput[]>(
   lexicons: T,
-  options: LexiconBundleOptions = {},
-): LexiconBundle<T> {
-  const baseExternalRefs = options.externalRefs ?? {};
+  options: LexiconToValibotOptions = {},
+): LexiconValidators<T, typeof options.format extends LexiconFormat ? typeof options.format : "sdk"> {
+  const blobFormat = options.format ?? "sdk";
 
   // Build a map of lexiconId -> { defs } for quick lookup
   const lexiconMap = new Map<
@@ -80,97 +63,27 @@ export function bundleLexicons<const T extends readonly LexiconInput[]>(
     });
   }
 
-  // Shared cache for all lexicons (keyed by fully-qualified ref like "app.eddy.project#staticValue")
-  const sdkCache = new Map<string, v.GenericSchema>();
-  const wireCache = new Map<string, v.GenericSchema>();
+  // Shared cache for all lexicons
+  const cache = new Map<string, v.GenericSchema>();
 
-  // Create a resolver that can resolve refs across all lexicons in the bundle
-  function createBundleRefResolver(
-    currentLexiconId: string,
-    blobFormat: LexiconFormat,
-  ): (ref: string) => v.GenericSchema {
-    const cache = blobFormat === "sdk" ? sdkCache : wireCache;
-
-    return function resolveRef(ref: string): v.GenericSchema {
-      // Parse the ref - could be:
-      // - "#defName" (local ref)
-      // - "com.example.lexicon#defName" (external ref)
-      // - "com.example.lexicon" (main def of external lexicon)
-
-      let resolvedRef = ref;
-      let targetLexiconId = currentLexiconId;
-      let defName = "";
-
-      if (ref.startsWith("#")) {
-        // Local ref
-        resolvedRef = `${currentLexiconId}${ref}`;
-        defName = ref.slice(1);
-      } else if (ref.includes("#")) {
-        // External ref with def name
-        const [nsid, name] = ref.split("#");
-        targetLexiconId = nsid;
-        defName = name;
-        resolvedRef = ref;
-      } else {
-        // External ref to main def
-        targetLexiconId = ref;
-        defName = "main";
-        resolvedRef = `${ref}#main`;
-      }
-
-      // Check cache first
-      if (cache.has(resolvedRef)) {
-        return cache.get(resolvedRef)!;
-      }
-
-      // Check base external refs (e.g., atprotoRefs)
-      if (baseExternalRefs[ref]) {
-        cache.set(resolvedRef, baseExternalRefs[ref]);
-        return baseExternalRefs[ref];
-      }
-      if (baseExternalRefs[resolvedRef]) {
-        cache.set(resolvedRef, baseExternalRefs[resolvedRef]);
-        return baseExternalRefs[resolvedRef];
-      }
-
-      // Look up the lexicon in our bundle
-      const lexicon = lexiconMap.get(targetLexiconId);
-      if (!lexicon) {
-        console.warn(
-          `Lexicon not found in bundle: ${targetLexiconId} (ref: ${ref})`,
-        );
-        return v.unknown();
-      }
-
+  // Create resolver config for bundle-wide lookup
+  const config: RefResolverConfig = {
+    lookupDef: (lexiconId, defName) => {
+      const lexicon = lexiconMap.get(lexiconId);
+      if (!lexicon) return null;
       const def = lexicon.defs[defName];
-      if (!def) {
-        throw new Error(
-          `Def not found: ${defName} in ${targetLexiconId} (ref: ${ref})`,
-        );
-      }
-
-      // Create context for conversion (using the target lexicon's context)
-      const ctx: ConverterContext = {
-        lexiconId: targetLexiconId,
-        defs: lexicon.defs,
-        resolveRef: createBundleRefResolver(targetLexiconId, blobFormat),
-        blobFormat,
-      };
-
-      // Convert and cache
-      const schema = convertType(def, ctx);
-      cache.set(resolvedRef, schema);
-      return schema;
-    };
-  }
+      if (!def) return null;
+      return { defs: lexicon.defs, def };
+    },
+    cache,
+    blobFormat,
+  };
 
   // Build validators for each lexicon
   function buildValidators(
     lexicon: LexiconInput,
-    blobFormat: LexiconFormat,
   ): Record<string, v.GenericSchema> {
-    const cache = blobFormat === "sdk" ? sdkCache : wireCache;
-    const resolveRef = createBundleRefResolver(lexicon.id, blobFormat);
+    const resolveRef = createRefResolver(lexicon.id, config);
 
     const ctx: ConverterContext = {
       lexiconId: lexicon.id,
@@ -214,20 +127,11 @@ export function bundleLexicons<const T extends readonly LexiconInput[]>(
     return result;
   }
 
-  const template = Object.fromEntries(
-    lexicons.map((lexicon) => [lexicon.id, lexicon]),
-  );
+  // Build result with validators for each lexicon keyed by ID
+  const result: Record<string, Record<string, v.GenericSchema>> = {};
+  for (const lexicon of lexicons) {
+    result[lexicon.id] = buildValidators(lexicon);
+  }
 
-  return {
-    wire: new Proxy({} as LexiconBundle<T, {}>["wire"], {
-      get(_, lexicon: any) {
-        return buildValidators(template[lexicon], "wire");
-      },
-    }),
-    sdk: new Proxy({} as LexiconBundle<T, {}>["sdk"], {
-      get(_, lexicon: any) {
-        return buildValidators(template[lexicon], "sdk");
-      },
-    }),
-  };
+  return result as LexiconValidators<T, typeof options.format extends LexiconFormat ? typeof options.format : "sdk">;
 }
