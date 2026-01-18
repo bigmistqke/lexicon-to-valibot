@@ -57,26 +57,61 @@ type XrpcResult =
   | SubscriptionValidators;
 
 /**
- * Options for lexiconToValibot
+ * A lookup object that holds lexicons for cross-reference resolution and caches results.
  */
-export interface LexiconToValibotOptions {
-  /** Format for blob validation: 'sdk' for parsing fetched records, 'wire' for outgoing. Default: 'sdk' */
-  format?: LexiconFormat;
+export interface Lookup {
+  /** @internal */
+  _lexiconMap: Map<string, { id: string; defs: Record<string, LexUserType> }>;
+  /** @internal - cache keyed by format */
+  _caches: {
+    sdk: Map<string, v.GenericSchema>;
+    wire: Map<string, v.GenericSchema>;
+  };
 }
 
 /**
- * Result of lexiconToValibot - validators for each lexicon keyed by ID.
+ * Create a lookup for resolving cross-lexicon references.
+ * The lookup caches converted schemas for reuse.
+ *
+ * @example
+ * ```ts
+ * const lookup = createLookup(strongRef, postLexicon, likeLexicon)
+ *
+ * const post = lexiconToValibot(postLexicon, { lookup })
+ * const like = lexiconToValibot(likeLexicon, { lookup })
+ * ```
  */
-export type LexiconValidators<
-  TInputs extends readonly LexiconInput[],
-  TType extends LexiconFormat = LexiconFormat,
-> = {
-  [K in TInputs[number] as K["id"]]: InferLexiconValidators<
-    Mutable<K>,
-    {},
-    TType
-  >;
-};
+export function createLookup(...lexicons: LexiconInput[]): Lookup {
+  const lexiconMap = new Map<
+    string,
+    { id: string; defs: Record<string, LexUserType> }
+  >();
+
+  for (const lexicon of lexicons) {
+    lexiconMap.set(lexicon.id, {
+      id: lexicon.id,
+      defs: lexicon.defs as Record<string, LexUserType>,
+    });
+  }
+
+  return {
+    _lexiconMap: lexiconMap,
+    _caches: {
+      sdk: new Map<string, v.GenericSchema>(),
+      wire: new Map<string, v.GenericSchema>(),
+    },
+  };
+}
+
+/**
+ * Options for lexiconToValibot
+ */
+export interface LexiconToValibotOptions {
+  /** Lookup for resolving cross-lexicon references */
+  lookup?: Lookup;
+  /** Format for blob validation: 'sdk' for parsing fetched records, 'wire' for outgoing. Default: 'sdk' */
+  format?: LexiconFormat;
+}
 
 // Convert XRPC def - returns validators object
 function convertXrpcDef(schema: unknown, ctx: ConverterContext): XrpcResult {
@@ -182,141 +217,154 @@ export function createRefResolver(
 }
 
 /**
- * Convert lexicons to valibot validators.
- * Cross-lexicon references are automatically resolved.
+ * Convert a lexicon to valibot validators.
+ * Use `lookup` option for cross-lexicon reference resolution.
  *
  * @example
  * ```ts
- * const validators = lexiconToValibot([
- *   projectLexicon,
- *   audioEffectLexicon,
- *   visualEffectLexicon,
- * ], { format: 'sdk' })
+ * // Simple usage (single lexicon, local refs only)
+ * const validators = lexiconToValibot(myLexicon)
  *
- * // Access validators by lexicon ID
- * const project = validators['app.example.project']
+ * // With cross-lexicon references
+ * const lookup = createLookup(strongRef, postLexicon, likeLexicon)
+ * const post = lexiconToValibot(postLexicon, { lookup })
+ * const like = lexiconToValibot(likeLexicon, { lookup })
+ *
+ * // Access validators directly
+ * post.main
+ * like.main
  * ```
  */
-export function lexiconToValibot<const T extends readonly LexiconInput[]>(
-  lexicons: T,
+export function lexiconToValibot<
+  T extends LexiconInput,
+  Format extends LexiconFormat = "sdk",
+>(
+  lexicon: T,
   options: LexiconToValibotOptions = {},
-): LexiconValidators<
-  T,
-  typeof options.format extends LexiconFormat ? typeof options.format : "sdk"
-> {
-  const blobFormat = options.format ?? "sdk";
+): InferLexiconValidators<Mutable<T>, {}, Format> {
+  const blobFormat = (options.format ?? "sdk") as Format;
+  const defs = lexicon.defs as Record<string, LexUserType>;
 
-  // Build a map of lexiconId -> { defs } for quick lookup
-  const lexiconMap = new Map<
-    string,
-    { id: string; defs: Record<string, LexUserType> }
-  >();
-  for (const lexicon of lexicons) {
-    lexiconMap.set(lexicon.id, {
-      id: lexicon.id,
-      defs: lexicon.defs as Record<string, LexUserType>,
-    });
+  // Use lookup's cache and lexicon map, or create local ones
+  const cache = options.lookup?._caches[blobFormat] ?? new Map<string, v.GenericSchema>();
+  const lexiconMap = options.lookup?._lexiconMap ?? new Map();
+
+  // Ensure current lexicon is in the map for local ref resolution
+  if (!lexiconMap.has(lexicon.id)) {
+    lexiconMap.set(lexicon.id, { id: lexicon.id, defs });
   }
 
-  // Shared cache for all lexicons
-  const cache = new Map<string, v.GenericSchema>();
-
-  // Create resolver config for bundle-wide lookup
+  // Create resolver config
   const config: RefResolverConfig = {
     lookupDef: (lexiconId, defName) => {
-      const lexicon = lexiconMap.get(lexiconId);
-      if (!lexicon) return null;
-      const def = lexicon.defs[defName];
+      const lex = lexiconMap.get(lexiconId);
+      if (!lex) return null;
+      const def = lex.defs[defName];
       if (!def) return null;
-      return { defs: lexicon.defs, def };
+      return { defs: lex.defs, def };
     },
     cache,
     blobFormat,
   };
 
-  // Build validators for each lexicon
-  function buildValidators(
-    lexicon: LexiconInput,
-  ): Record<string, v.GenericSchema> {
-    const resolveRef = createRefResolver(lexicon.id, config);
+  const resolveRef = createRefResolver(lexicon.id, config);
 
-    const ctx: ConverterContext = {
-      lexiconId: lexicon.id,
-      defs: lexicon.defs,
-      resolveRef,
-      blobFormat,
-    };
+  const ctx: ConverterContext = {
+    lexiconId: lexicon.id,
+    defs: lexicon.defs,
+    resolveRef,
+    blobFormat,
+  };
 
-    const result: Record<string, v.GenericSchema> = {};
+  const result: Record<string, v.GenericSchema> = {};
 
-    for (const [defName, def] of Object.entries(lexicon.defs)) {
-      // Skip XRPC types
-      if (isXrpcDef(def)) continue;
+  for (const [defName, def] of Object.entries(lexicon.defs)) {
+    // Skip XRPC types
+    if (isXrpcDef(def)) continue;
 
-      const fullRef = `${lexicon.id}#${defName}`;
+    const fullRef = `${lexicon.id}#${defName}`;
 
-      // Check cache first
-      if (cache.has(fullRef)) {
-        result[defName] = cache.get(fullRef)!;
-        continue;
-      }
-
-      let schema = convertType(def, ctx);
-
-      // For wire format, wrap record types with $type
-      if (blobFormat === "wire" && isRecordDef(def)) {
-        const $type =
-          defName === "main" ? lexicon.id : `${lexicon.id}#${defName}`;
-        schema = v.object({
-          $type: v.literal($type),
-          ...("entries" in schema
-            ? (schema as v.ObjectSchema<v.ObjectEntries, undefined>).entries
-            : {}),
-        });
-      }
-
-      cache.set(fullRef, schema);
-      result[defName] = schema;
+    // Check cache first
+    if (cache.has(fullRef)) {
+      result[defName] = cache.get(fullRef)!;
+      continue;
     }
 
-    return result;
+    let schema = convertType(def, ctx);
+
+    // For wire format, wrap record types with $type
+    if (blobFormat === "wire" && isRecordDef(def)) {
+      const $type =
+        defName === "main" ? lexicon.id : `${lexicon.id}#${defName}`;
+      schema = v.object({
+        $type: v.literal($type),
+        ...("entries" in schema
+          ? (schema as v.ObjectSchema<v.ObjectEntries, undefined>).entries
+          : {}),
+      });
+    }
+
+    cache.set(fullRef, schema);
+    result[defName] = schema;
   }
 
-  // Build result with validators for each lexicon keyed by ID
-  const result: Record<string, Record<string, v.GenericSchema>> = {};
-  for (const lexicon of lexicons) {
-    result[lexicon.id] = buildValidators(lexicon);
-  }
+  return result as InferLexiconValidators<Mutable<T>, {}, Format>;
+}
 
-  return result as LexiconValidators<
-    T,
-    typeof options.format extends LexiconFormat ? typeof options.format : "sdk"
-  >;
+/**
+ * Options for xrpcToValibot
+ */
+export interface XrpcToValibotOptions {
+  /** Lookup for resolving cross-lexicon references */
+  lookup?: Lookup;
+  /** Format for blob validation: 'sdk' for parsing fetched records, 'wire' for outgoing. Default: 'sdk' */
+  format?: LexiconFormat;
 }
 
 /**
  * Convert a lexicon to valibot validators for XRPC endpoints.
  * Only handles query, procedure, and subscription types.
+ * Use `lookup` option for cross-lexicon reference resolution.
+ *
+ * @example
+ * ```ts
+ * const lookup = createLookup(strongRef, postLexicon)
+ * const timeline = xrpcToValibot(timelineLexicon, { lookup })
+ *
+ * // Access validators
+ * timeline.main.params
+ * timeline.main.output
+ * ```
  */
 export function xrpcToValibot<
   T extends Mutable<LexiconInput>,
   Format extends BlobFormat = "sdk",
 >(
   lexicon: T,
-  options: { format?: Format } = {},
+  options: XrpcToValibotOptions = {},
 ): InferXrpcValidators<Mutable<T>, {}, Format> {
-  const blobFormat = options.format ?? "sdk";
+  const blobFormat = (options.format ?? "sdk") as LexiconFormat;
   const defs = lexicon.defs as Record<string, LexUserType>;
 
-  // Single-lexicon lookup: only resolves local refs
+  // Use lookup's cache and lexicon map, or create local ones
+  const cache = options.lookup?._caches[blobFormat] ?? new Map<string, v.GenericSchema>();
+  const lexiconMap = options.lookup?._lexiconMap ?? new Map();
+
+  // Ensure current lexicon is in the map for local ref resolution
+  if (!lexiconMap.has(lexicon.id)) {
+    lexiconMap.set(lexicon.id, { id: lexicon.id, defs });
+  }
+
+  // Create resolver config
   const config: RefResolverConfig = {
     lookupDef: (lexiconId, defName) => {
-      if (lexiconId !== lexicon.id) return null;
-      const def = defs[defName];
+      const lex = lexiconMap.get(lexiconId);
+      if (!lex) return null;
+      const def = lex.defs[defName];
       if (!def) return null;
-      return { defs, def };
+      return { defs: lex.defs, def };
     },
-    cache: new Map<string, v.GenericSchema>(),
+    cache,
     blobFormat,
   };
 

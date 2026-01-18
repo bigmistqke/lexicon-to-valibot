@@ -22,7 +22,7 @@ describe("lexiconToValibot", () => {
       },
     } as const;
 
-    const validators = lexiconToValibot([lexicon])[lexicon.id];
+    const validators = lexiconToValibot(lexicon);
 
     expect(v.safeParse(validators.main, { text: "Hello" }).success).toBe(true);
     expect(
@@ -59,7 +59,7 @@ describe("lexiconToValibot", () => {
       },
     } as const;
 
-    const validators = lexiconToValibot([lexicon])[lexicon.id];
+    const validators = lexiconToValibot(lexicon);
 
     expect(v.safeParse(validators.main, { name: "Test" }).success).toBe(true);
     expect(v.safeParse(validators.secondary, { value: 42 }).success).toBe(true);
@@ -92,7 +92,7 @@ describe("lexiconToValibot", () => {
       },
     } as const;
 
-    const validators = lexiconToValibot([lexicon])[lexicon.id];
+    const validators = lexiconToValibot(lexicon);
 
     expect(
       v.safeParse(validators.main, {
@@ -139,7 +139,7 @@ describe("lexiconToValibot", () => {
       },
     } as const;
 
-    const validators = lexiconToValibot([lexicon])[lexicon.id];
+    const validators = lexiconToValibot(lexicon);
 
     expect(
       v.safeParse(validators.main, {
@@ -199,7 +199,7 @@ describe("lexiconToValibot", () => {
       },
     } as const;
 
-    const validators = lexiconToValibot([lexicon])[lexicon.id];
+    const validators = lexiconToValibot(lexicon);
 
     expect(
       v.safeParse(validators.main, {
@@ -234,7 +234,7 @@ describe("lexiconToValibot", () => {
       },
     } as const;
 
-    const validators = lexiconToValibot([lexicon], { format: "wire" })[lexicon.id];
+    const validators = lexiconToValibot(lexicon, { format: "wire" });
 
     expect(
       v.safeParse(validators.main, {
@@ -269,7 +269,7 @@ describe("lexiconToValibot", () => {
       },
     } as const;
 
-    const validators = lexiconToValibot([lexicon])[lexicon.id];
+    const validators = lexiconToValibot(lexicon);
 
     // All fields provided
     expect(
@@ -331,7 +331,7 @@ describe("lexiconToValibot", () => {
       },
     } as const;
 
-    const validators = lexiconToValibot([lexicon])[lexicon.id];
+    const validators = lexiconToValibot(lexicon);
 
     expect(
       v.safeParse(validators.main, {

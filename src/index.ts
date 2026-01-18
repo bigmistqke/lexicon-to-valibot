@@ -4,12 +4,14 @@ export type {
   SubscriptionValidators,
 } from "./converters/xrpc.js";
 export {
+  createLookup,
   lexiconToValibot,
   xrpcToValibot,
   type LexiconFormat,
   type LexiconInput,
   type LexiconToValibotOptions,
-  type LexiconValidators,
+  type Lookup,
+  type XrpcToValibotOptions,
 } from "./core.js";
 export type {
   BlobFormat,

@@ -13,6 +13,7 @@ import {
   LexToken,
   LexUnknown,
 } from "@atproto/lexicon";
+import * as v from "valibot";
 import { ConverterContext } from "../types";
 import { convertBlob, convertCidLink, convertToken } from "./atproto";
 import {

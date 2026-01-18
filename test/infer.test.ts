@@ -20,7 +20,7 @@ describe("Type inference", () => {
       },
     } as const;
 
-    const validators = lexiconToValibot([lexicon])[lexicon.id];
+    const validators = lexiconToValibot(lexicon);
 
     type MainOutput = v.InferOutput<typeof validators.main>;
 
@@ -47,7 +47,7 @@ describe("Type inference", () => {
       },
     } as const;
 
-    const validators = lexiconToValibot([lexicon])[lexicon.id];
+    const validators = lexiconToValibot(lexicon);
 
     type MainOutput = v.InferOutput<typeof validators.main>;
 
@@ -73,7 +73,7 @@ describe("Type inference", () => {
       },
     } as const;
 
-    const validators = lexiconToValibot([lexicon])[lexicon.id];
+    const validators = lexiconToValibot(lexicon);
 
     type MainOutput = v.InferOutput<typeof validators.main>;
 
@@ -100,7 +100,7 @@ describe("Type inference", () => {
       },
     } as const;
 
-    const validators = lexiconToValibot([lexicon])[lexicon.id];
+    const validators = lexiconToValibot(lexicon);
 
     type MainOutput = v.InferOutput<typeof validators.main>;
 
@@ -125,7 +125,7 @@ describe("Type inference", () => {
       },
     } as const;
 
-    const validators = lexiconToValibot([lexicon])[lexicon.id];
+    const validators = lexiconToValibot(lexicon);
 
     type MainOutput = v.InferOutput<typeof validators.main>;
 
@@ -157,7 +157,7 @@ describe("Type inference", () => {
       },
     } as const;
 
-    const validators = lexiconToValibot([lexicon])[lexicon.id];
+    const validators = lexiconToValibot(lexicon);
 
     type MainOutput = v.InferOutput<typeof validators.main>;
 
@@ -195,7 +195,7 @@ describe("Type inference", () => {
       },
     } as const;
 
-    const validators = lexiconToValibot([lexicon])[lexicon.id];
+    const validators = lexiconToValibot(lexicon);
 
     type MainOutput = v.InferOutput<typeof validators.main>;
 
@@ -222,7 +222,7 @@ describe("Type inference", () => {
       },
     } as const;
 
-    const validators = lexiconToValibot([lexicon])[lexicon.id];
+    const validators = lexiconToValibot(lexicon);
 
     type MainOutput = v.InferOutput<typeof validators.main>;
 
