@@ -14,7 +14,8 @@ import {
   QueryValidators,
   SubscriptionValidators,
 } from "./converters/xrpc.ts";
-import { LexiconFormat, Lookup } from "./lexicon.ts";
+import { LexiconFormat } from "./lexicon.ts";
+import { Lookup } from "./lookup.ts";
 import { isXrpcDef, makeRefResolver } from "./shared.ts";
 import {
   BlobFormat,

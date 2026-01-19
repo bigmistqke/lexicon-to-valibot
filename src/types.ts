@@ -134,7 +134,7 @@ export interface LexiconInput {
 
 // Map lexicon IDs to their lexicon objects for direct lookup
 export type LexiconMap<Lexicons extends readonly LexiconInput[]> = {
-  [L in Lexicons[number] as L["id"]]: L;
+  [L in Lexicons[number] as L["id"]]: Mutable<L>;
 };
 
 /**********************************************************************************/

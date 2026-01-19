@@ -3,13 +3,8 @@ export type {
   QueryValidators,
   SubscriptionValidators,
 } from "./converters/xrpc.ts";
-export {
-  createLookup,
-  lexiconToValibot,
-  type LexiconFormat,
-  type LexiconToValibotOptions,
-  type Lookup,
-} from "./lexicon.ts";
+export * from "./lexicon.ts";
+export * from "./lookup.ts";
 export type {
   BlobFormat,
   InferLexiconOutput,
@@ -20,4 +15,4 @@ export type {
   LexiconMap,
   LexUserType,
 } from "./types.ts";
-export { xrpcToValibot, type XrpcToValibotOptions } from "./xrpc.ts";
+export * from "./xrpc.ts";
