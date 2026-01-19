@@ -1,6 +1,6 @@
 {
   "name": "@bigmistqke/lexicon-to-valibot",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Convert AT Protocol Lexicon schemas to Valibot validators",
   "type": "module",
   "main": "dist/index.js",
