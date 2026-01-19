@@ -2,23 +2,22 @@ export type {
   ProcedureValidators,
   QueryValidators,
   SubscriptionValidators,
-} from "./converters/xrpc.js";
+} from "./converters/xrpc.ts";
 export {
   createLookup,
   lexiconToValibot,
-  xrpcToValibot,
   type LexiconFormat,
   type LexiconToValibotOptions,
   type Lookup,
-  type XrpcToValibotOptions,
-} from "./core.js";
+} from "./lexicon.ts";
 export type {
   BlobFormat,
-  BuildExtRefs,
   InferLexiconOutput,
   InferLexiconValidators,
   InferLexType,
   LexiconDoc,
   LexiconInput,
+  LexiconMap,
   LexUserType,
-} from "./types.js";
+} from "./types.ts";
+export { xrpcToValibot, type XrpcToValibotOptions } from "./xrpc.ts";

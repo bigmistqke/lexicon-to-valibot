@@ -1,10 +1,10 @@
 import * as v from "valibot";
 import { describe, expectTypeOf, it } from "vitest";
-import { createLookup, lexiconToValibot } from "../src/index.js";
-import type { BuildExtRefs } from "../src/types.js";
+import { createLookup, lexiconToValibot } from "../src/index.ts";
+import type { LexiconMap } from "../src/types.ts";
 
-describe("BuildExtRefs debug", () => {
-  it("builds correct keys for cross-lexicon refs", () => {
+describe("Lookup for cross-lexicons refs", () => {
+  it("builds LexiconMap with lexicon IDs as keys", () => {
     const projectLexicon = {
       lexicon: 1,
       id: "app.eddy.project",
@@ -35,12 +35,16 @@ describe("BuildExtRefs debug", () => {
     } as const;
 
     type Lexicons = readonly [typeof projectLexicon, typeof audioEffectLexicon];
-    type ExtRefs = BuildExtRefs<Lexicons, "sdk">;
+    type LexMap = LexiconMap<Lexicons>;
 
-    // Check if the key exists - this should be { value: number }, not unknown
-    type StaticValueType = ExtRefs["app.eddy.project#staticValue"];
+    // LexiconMap maps lexicon IDs to lexicon objects
+    type ProjectLexicon = LexMap["app.eddy.project"];
+    type AudioEffectLexicon = LexMap["app.eddy.audioEffect"];
 
-    expectTypeOf<StaticValueType>().toMatchTypeOf<{ value: number }>();
+    expectTypeOf<ProjectLexicon["id"]>().toEqualTypeOf<"app.eddy.project">();
+    expectTypeOf<
+      AudioEffectLexicon["id"]
+    >().toEqualTypeOf<"app.eddy.audioEffect">();
   });
 
   it("handles circular refs between lexicons", () => {
@@ -104,11 +108,13 @@ describe("BuildExtRefs debug", () => {
     } as const;
 
     const lookup = createLookup(projectLexicon, audioEffectLexicon);
-    const audioEffectValidators = lexiconToValibot(audioEffectLexicon, { lookup });
+    const audioEffectValidators = lexiconToValibot(audioEffectLexicon, {
+      lookup,
+    });
 
     type GainOutput = v.InferOutput<typeof audioEffectValidators.gain>;
     type GainParamsOutput = v.InferOutput<
-      typeof audioEffectValidators["gain.params"]
+      (typeof audioEffectValidators)["gain.params"]
     >;
 
     // enabled should be { value: number }, not unknown
@@ -146,10 +152,7 @@ describe("BuildExtRefs debug", () => {
               type: "array",
               items: {
                 type: "union",
-                refs: [
-                  "app.eddy.audioEffect#pan",
-                  "app.eddy.audioEffect#gain",
-                ],
+                refs: ["app.eddy.audioEffect#pan", "app.eddy.audioEffect#gain"],
               },
             },
             videoPipeline: {
@@ -304,12 +307,18 @@ describe("BuildExtRefs debug", () => {
     );
 
     const projectValidators = lexiconToValibot(projectLexicon, { lookup });
-    const audioEffectValidators = lexiconToValibot(audioEffectLexicon, { lookup });
-    const visualEffectValidators = lexiconToValibot(visualEffectLexicon, { lookup });
+    const audioEffectValidators = lexiconToValibot(audioEffectLexicon, {
+      lookup,
+    });
+    const visualEffectValidators = lexiconToValibot(visualEffectLexicon, {
+      lookup,
+    });
 
     type Track = v.InferOutput<typeof projectValidators.track>;
     type AudioPan = v.InferOutput<typeof audioEffectValidators.pan>;
-    type VisualTransform = v.InferOutput<typeof visualEffectValidators.transform>;
+    type VisualTransform = v.InferOutput<
+      typeof visualEffectValidators.transform
+    >;
 
     // These should NOT be unknown
     expectTypeOf<AudioPan["enabled"]>().toMatchTypeOf<

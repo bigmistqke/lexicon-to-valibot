@@ -1,6 +1,6 @@
 import * as v from "valibot";
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { createLookup, xrpcToValibot } from "../src/index.js";
+import { createLookup, xrpcToValibot } from "../src/index.ts";
 
 describe("XRPC Query", () => {
   it("converts query with parameters and output", () => {
@@ -644,7 +644,11 @@ describe("XRPC with createLookup", () => {
       },
     } as const;
 
-    const lookup = createLookup(sharedTypeLexicon, queryALexicon, queryBLexicon);
+    const lookup = createLookup(
+      sharedTypeLexicon,
+      queryALexicon,
+      queryBLexicon,
+    );
     const queryA = xrpcToValibot(queryALexicon, { lookup });
     const queryB = xrpcToValibot(queryBLexicon, { lookup });
 

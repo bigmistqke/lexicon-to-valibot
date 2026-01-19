@@ -4,7 +4,7 @@ import {
   convertBlob,
   convertCidLink,
   convertToken,
-} from "../src/converters/atproto.js";
+} from "../src/converters/atproto.ts";
 
 // Mock BlobRef-like object for testing (duck typing)
 function createMockBlobRef(cid: string, mimeType: string, size: number) {

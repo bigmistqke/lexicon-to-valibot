@@ -5,7 +5,7 @@ import {
   type InferLexiconOutput,
   lexiconToValibot,
   xrpcToValibot,
-} from "../src/index.js";
+} from "../src/index.ts";
 
 describe("Type inference", () => {
   it("infers primitive types correctly", () => {
@@ -506,7 +506,11 @@ describe("Cross-lexicon type inference with createLookup", () => {
       },
     } as const;
 
-    const lookup = createLookup(postLexicon, responseLexicon, createPostLexicon);
+    const lookup = createLookup(
+      postLexicon,
+      responseLexicon,
+      createPostLexicon,
+    );
     const createPost = xrpcToValibot(createPostLexicon, { lookup });
 
     type InputType = v.InferOutput<typeof createPost.main.input>;

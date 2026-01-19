@@ -14,21 +14,21 @@ import {
   LexUnknown,
 } from "@atproto/lexicon";
 import * as v from "valibot";
-import { ConverterContext } from "../types";
-import { convertBlob, convertCidLink, convertToken } from "./atproto";
+import { ConverterContext } from "../types.ts";
+import { convertBlob, convertCidLink, convertToken } from "./atproto.ts";
 import {
   convertArray,
   convertObject,
   convertRef,
   convertUnion,
-} from "./complex";
+} from "./complex.ts";
 import {
   convertBoolean,
   convertBytes,
   convertInteger,
   convertString,
   convertUnknown,
-} from "./primitives";
+} from "./primitives.ts";
 
 export function convertType(
   schema: unknown,

@@ -1,6 +1,6 @@
 import * as v from "valibot";
 import { describe, expect, it } from "vitest";
-import { createLookup, lexiconToValibot } from "../src/index.js";
+import { createLookup, lexiconToValibot } from "../src/index.ts";
 
 describe("lexiconToValibot", () => {
   it("converts a simple record lexicon", () => {

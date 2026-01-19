@@ -5,8 +5,8 @@ import {
   convertObject,
   convertRef,
   convertUnion,
-} from "../src/converters/complex.js";
-import type { ConverterContext, LexArray, LexObject } from "../src/types.js";
+} from "../src/converters/complex.ts";
+import type { ConverterContext, LexArray, LexObject } from "../src/types.ts";
 
 // Helper to create a basic context
 function createContext(

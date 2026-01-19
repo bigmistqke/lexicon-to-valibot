@@ -1,5 +1,10 @@
 import * as v from "valibot";
-import type { LexXrpcQuery, LexXrpcProcedure, LexXrpcSubscription, ConverterContext } from "../types.js";
+import type {
+  ConverterContext,
+  LexXrpcProcedure,
+  LexXrpcQuery,
+  LexXrpcSubscription,
+} from "../types.ts";
 
 export interface QueryValidators {
   parameters: v.GenericSchema;
@@ -19,9 +24,15 @@ export interface SubscriptionValidators {
 
 // Convert params object to valibot schema
 function convertParams(
-  params: { type: "params"; required?: string[]; properties?: Record<string, unknown> } | undefined,
+  params:
+    | {
+        type: "params";
+        required?: string[];
+        properties?: Record<string, unknown>;
+      }
+    | undefined,
   ctx: ConverterContext,
-  convertType: (type: unknown, ctx: ConverterContext) => v.GenericSchema
+  convertType: (type: unknown, ctx: ConverterContext) => v.GenericSchema,
 ): v.GenericSchema {
   if (!params?.properties) {
     return v.object({});
@@ -47,7 +58,7 @@ function convertParams(
 function convertBody(
   body: { schema?: unknown } | undefined,
   ctx: ConverterContext,
-  convertType: (type: unknown, ctx: ConverterContext) => v.GenericSchema
+  convertType: (type: unknown, ctx: ConverterContext) => v.GenericSchema,
 ): v.GenericSchema {
   if (!body?.schema) {
     return v.unknown();
@@ -58,7 +69,7 @@ function convertBody(
 export function convertQuery(
   schema: LexXrpcQuery,
   ctx: ConverterContext,
-  convertType: (type: unknown, ctx: ConverterContext) => v.GenericSchema
+  convertType: (type: unknown, ctx: ConverterContext) => v.GenericSchema,
 ): QueryValidators {
   return {
     parameters: convertParams(schema.parameters, ctx, convertType),
@@ -69,7 +80,7 @@ export function convertQuery(
 export function convertProcedure(
   schema: LexXrpcProcedure,
   ctx: ConverterContext,
-  convertType: (type: unknown, ctx: ConverterContext) => v.GenericSchema
+  convertType: (type: unknown, ctx: ConverterContext) => v.GenericSchema,
 ): ProcedureValidators {
   return {
     parameters: convertParams(schema.parameters, ctx, convertType),
@@ -81,7 +92,7 @@ export function convertProcedure(
 export function convertSubscription(
   schema: LexXrpcSubscription,
   ctx: ConverterContext,
-  convertType: (type: unknown, ctx: ConverterContext) => v.GenericSchema
+  convertType: (type: unknown, ctx: ConverterContext) => v.GenericSchema,
 ): SubscriptionValidators {
   return {
     parameters: convertParams(schema.parameters, ctx, convertType),

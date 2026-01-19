@@ -119,6 +119,26 @@ type ExternalRefsMap = Record<string, unknown>;
 
 /**********************************************************************************/
 /*                                                                                */
+/*                                     Lookup                                     */
+/*                                                                                */
+/**********************************************************************************/
+
+// Input type for lexicons
+export interface LexiconInput {
+  lexicon: 1;
+  id: string;
+  defs: Record<string, unknown>;
+  description?: string;
+  revision?: number;
+}
+
+// Map lexicon IDs to their lexicon objects for direct lookup
+export type LexiconMap<Lexicons extends readonly LexiconInput[]> = {
+  [L in Lexicons[number] as L["id"]]: L;
+};
+
+/**********************************************************************************/
+/*                                                                                */
 /*                                      Infer                                     */
 /*                                                                                */
 /**********************************************************************************/
@@ -234,7 +254,9 @@ type InferLexRef<
     : // External ref with def name: lexiconId#defName
       R extends `${infer LexId}#${infer DefName}`
       ? LexId extends keyof LexMap
-        ? LexMap[LexId] extends { defs: infer ExtDefs extends Record<string, unknown> }
+        ? LexMap[LexId] extends {
+            defs: infer ExtDefs extends Record<string, unknown>;
+          }
           ? DefName extends keyof ExtDefs
             ? InferLexType<ExtDefs[DefName], ExtDefs, LexMap, Format>
             : unknown
@@ -242,7 +264,9 @@ type InferLexRef<
         : unknown
       : // External ref without def name: lexiconId (defaults to #main)
         R extends keyof LexMap
-        ? LexMap[R] extends { defs: infer ExtDefs extends Record<string, unknown> }
+        ? LexMap[R] extends {
+            defs: infer ExtDefs extends Record<string, unknown>;
+          }
           ? "main" extends keyof ExtDefs
             ? InferLexType<ExtDefs["main"], ExtDefs, LexMap, Format>
             : unknown
@@ -446,29 +470,3 @@ export type InferLexiconOutput<
   ExtRefs extends ExternalRefsMap = {},
   Format extends BlobFormat = "sdk",
 > = InferLexType<T["defs"][K], T["defs"], ExtRefs, Format>;
-
-/**********************************************************************************/
-/*                                                                                */
-/*                                     Lookup                                     */
-/*                                                                                */
-/**********************************************************************************/
-
-// Input type for lexicons
-export interface LexiconInput {
-  lexicon: 1;
-  id: string;
-  defs: Record<string, unknown>;
-  description?: string;
-  revision?: number;
-}
-
-// Map lexicon IDs to their lexicon objects for direct lookup
-export type LexiconMap<Lexicons extends readonly LexiconInput[]> = {
-  [L in Lexicons[number] as L["id"]]: L;
-};
-
-// BuildExtRefs is now just an alias for LexiconMap - refs are resolved lazily
-export type BuildExtRefs<
-  Lexicons extends readonly LexiconInput[],
-  _Format extends BlobFormat = "sdk",
-> = LexiconMap<Lexicons>;

@@ -1,6 +1,6 @@
 import type { BlobRef } from "@atproto/lexicon";
 import * as v from "valibot";
-import type { BlobFormat, LexBlob, LexCidLink, LexToken } from "../types.js";
+import type { BlobFormat, LexBlob, LexCidLink, LexToken } from "../types.ts";
 
 // Blob reference types for AT Protocol
 
@@ -56,19 +56,22 @@ function isUntypedBlobRef(value: unknown): value is UntypedBlobRef {
 // Validator for SDK format (incoming from PDS via SDK)
 const blobSdkSchema = v.custom<BlobRef | UntypedBlobRef>(
   (value) => isSdkBlobRef(value) || isUntypedBlobRef(value),
-  "Expected BlobRef (SDK format)"
+  "Expected BlobRef (SDK format)",
 );
 
 // Validator for wire format (outgoing to PDS)
 const blobWireSchema = v.custom<WireBlobRef | UntypedBlobRef>(
   (value) => isWireBlobRef(value) || isUntypedBlobRef(value),
-  "Expected BlobRef (wire format)"
+  "Expected BlobRef (wire format)",
 );
 
-export function convertBlob(schema: LexBlob, format: BlobFormat): v.GenericSchema {
+export function convertBlob(
+  schema: LexBlob,
+  format: BlobFormat,
+): v.GenericSchema {
   // For now, we validate the structure but don't enforce accept/maxSize at runtime
   // Those would require access to the actual blob data
-  return format === 'sdk' ? blobSdkSchema : blobWireSchema;
+  return format === "sdk" ? blobSdkSchema : blobWireSchema;
 }
 
 // CID link is represented as an object with $link property containing the CID string

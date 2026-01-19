@@ -6,7 +6,7 @@ import {
   convertInteger,
   convertString,
   convertUnknown,
-} from "../src/converters/primitives.js";
+} from "../src/converters/primitives.ts";
 
 describe("convertBoolean", () => {
   it("converts basic boolean", () => {

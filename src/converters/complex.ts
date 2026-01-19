@@ -1,10 +1,16 @@
 import * as v from "valibot";
-import type { LexArray, LexObject, LexRef, LexRefUnion, ConverterContext } from "../types.js";
+import type {
+  ConverterContext,
+  LexArray,
+  LexObject,
+  LexRef,
+  LexRefUnion,
+} from "../types.ts";
 
 export function convertArray(
   schema: LexArray,
   ctx: ConverterContext,
-  convertType: (type: unknown, ctx: ConverterContext) => v.GenericSchema
+  convertType: (type: unknown, ctx: ConverterContext) => v.GenericSchema,
 ): v.GenericSchema {
   const itemsSchema = convertType(schema.items, ctx);
 
@@ -27,7 +33,7 @@ export function convertArray(
 export function convertObject(
   schema: LexObject,
   ctx: ConverterContext,
-  convertType: (type: unknown, ctx: ConverterContext) => v.GenericSchema
+  convertType: (type: unknown, ctx: ConverterContext) => v.GenericSchema,
 ): v.GenericSchema {
   const properties: Record<string, v.GenericSchema> = {};
   const requiredSet = new Set(schema.required ?? []);
@@ -54,13 +60,16 @@ export function convertObject(
   return v.object(properties);
 }
 
-export function convertRef(schema: LexRef, ctx: ConverterContext): v.GenericSchema {
+export function convertRef(
+  schema: LexRef,
+  ctx: ConverterContext,
+): v.GenericSchema {
   return v.lazy(() => ctx.resolveRef(schema.ref));
 }
 
 export function convertUnion(
   schema: LexRefUnion,
-  ctx: ConverterContext
+  ctx: ConverterContext,
 ): v.GenericSchema {
   if (schema.refs.length === 0) {
     return v.never();
@@ -72,7 +81,7 @@ export function convertUnion(
 
   // Create a union of lazy refs - we know there are at least 2 refs from the check above
   const [first, second, ...rest] = schema.refs.map((ref) =>
-    v.lazy(() => ctx.resolveRef(ref))
+    v.lazy(() => ctx.resolveRef(ref)),
   );
 
   return v.union([first, second, ...rest]);

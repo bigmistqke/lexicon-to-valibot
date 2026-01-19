@@ -1,5 +1,11 @@
 import * as v from "valibot";
-import type { LexBoolean, LexInteger, LexString, LexUnknown, LexBytes } from "../types.js";
+import type {
+  LexBoolean,
+  LexBytes,
+  LexInteger,
+  LexString,
+  LexUnknown,
+} from "../types.ts";
 
 export function convertBoolean(schema: LexBoolean): v.GenericSchema {
   if (schema.const !== undefined) {
@@ -9,7 +15,9 @@ export function convertBoolean(schema: LexBoolean): v.GenericSchema {
 }
 
 export function convertInteger(schema: LexInteger): v.GenericSchema {
-  const checks: v.PipeItem<number, number, v.BaseIssue<unknown>>[] = [v.integer()];
+  const checks: v.PipeItem<number, number, v.BaseIssue<unknown>>[] = [
+    v.integer(),
+  ];
 
   if (schema.minimum !== undefined) {
     checks.push(v.minValue(schema.minimum));
@@ -50,8 +58,8 @@ export function convertString(schema: LexString): v.GenericSchema {
     checks.push(
       v.check(
         (value) => countGraphemes(value) >= min,
-        `String must have at least ${min} grapheme(s)`
-      )
+        `String must have at least ${min} grapheme(s)`,
+      ),
     );
   }
   if (schema.maxGraphemes !== undefined) {
@@ -59,8 +67,8 @@ export function convertString(schema: LexString): v.GenericSchema {
     checks.push(
       v.check(
         (value) => countGraphemes(value) <= max,
-        `String must have at most ${max} grapheme(s)`
-      )
+        `String must have at most ${max} grapheme(s)`,
+      ),
     );
   }
 
@@ -81,16 +89,28 @@ export function convertString(schema: LexString): v.GenericSchema {
         checks.push(v.url());
         break;
       case "at-uri":
-        checks.push(v.regex(/^at:\/\/[a-zA-Z0-9._:%-]+\/[a-zA-Z0-9.]+\/[a-zA-Z0-9._~:@!$&')(*+,;=-]+$/));
+        checks.push(
+          v.regex(
+            /^at:\/\/[a-zA-Z0-9._:%-]+\/[a-zA-Z0-9.]+\/[a-zA-Z0-9._~:@!$&')(*+,;=-]+$/,
+          ),
+        );
         break;
       case "did":
         checks.push(v.regex(/^did:[a-z]+:[a-zA-Z0-9._:%-]*[a-zA-Z0-9._-]$/));
         break;
       case "handle":
-        checks.push(v.regex(/^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$/));
+        checks.push(
+          v.regex(
+            /^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$/,
+          ),
+        );
         break;
       case "nsid":
-        checks.push(v.regex(/^[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+(\.[a-zA-Z]([a-zA-Z]{0,61}[a-zA-Z])?)$/));
+        checks.push(
+          v.regex(
+            /^[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+(\.[a-zA-Z]([a-zA-Z]{0,61}[a-zA-Z])?)$/,
+          ),
+        );
         break;
       case "cid":
         checks.push(v.regex(/^[a-zA-Z0-9+/=]+$/));
@@ -106,7 +126,11 @@ export function convertString(schema: LexString): v.GenericSchema {
         break;
       case "at-identifier":
         // at-identifier can be a handle or a DID
-        checks.push(v.regex(/^(did:[a-z]+:[a-zA-Z0-9._:%-]*[a-zA-Z0-9._-]|([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)$/));
+        checks.push(
+          v.regex(
+            /^(did:[a-z]+:[a-zA-Z0-9._:%-]*[a-zA-Z0-9._-]|([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)$/,
+          ),
+        );
         break;
     }
   }
@@ -131,14 +155,17 @@ export function convertBytes(schema: LexBytes): v.GenericSchema {
 
   return v.pipe(
     baseSchema,
-    v.check((value) => {
-      if (schema.minLength !== undefined && value.length < schema.minLength) {
-        return false;
-      }
-      if (schema.maxLength !== undefined && value.length > schema.maxLength) {
-        return false;
-      }
-      return true;
-    }, `Bytes length must be between ${schema.minLength ?? 0} and ${schema.maxLength ?? "∞"}`)
+    v.check(
+      (value) => {
+        if (schema.minLength !== undefined && value.length < schema.minLength) {
+          return false;
+        }
+        if (schema.maxLength !== undefined && value.length > schema.maxLength) {
+          return false;
+        }
+        return true;
+      },
+      `Bytes length must be between ${schema.minLength ?? 0} and ${schema.maxLength ?? "∞"}`,
+    ),
   );
 }
